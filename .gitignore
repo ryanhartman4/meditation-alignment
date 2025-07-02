@@ -66,3 +66,8 @@ Desktop.ini
 # Linux
 .directory
 .Trash-*
+
+# files
+logical_flow_errors.md
+PMA-README.md
+project-outline.md
