@@ -18,8 +18,13 @@ class MeditationConstitution:
     def __init__(self):
         # Load constitution from JSON file
         constitution_path = os.path.join(DATA_DIR, "meditation_constitution.json")
-        with open(constitution_path, 'r') as f:
-            self.constitution_data = json.load(f)
+        try:
+            with open(constitution_path, 'r') as f:
+                self.constitution_data = json.load(f)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Constitution file not found at {constitution_path}. Please ensure meditation_constitution.json exists.")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in constitution file: {e}")
         
         self.principles = self.constitution_data["principles"]
         self.safety_thresholds = self.constitution_data["safety_thresholds"]
@@ -31,25 +36,88 @@ class MeditationConstitution:
                 re.compile(pattern, re.IGNORECASE) 
                 for pattern in principle_data["patterns"]
             ]
+        
+        # Add context-aware exceptions
+        self.context_exceptions = {
+            "inclusivity": [
+                # Phrases that make physical instructions optional
+                "if you can", "when you're able", "for those who can",
+                "if comfortable", "optional:", "alternatively",
+                # Mental/visualization context
+                "in your mind", "imagine", "visualize", "picture yourself"
+            ],
+            "medical_safety": [
+                # Educational context
+                "speak with your doctor", "consult a professional",
+                "medical supervision", "healthcare provider"
+            ]
+        }
+    
+    def _check_context_exceptions(self, text: str, principle: str, match_pos: int) -> bool:
+        """Check if a pattern match should be excepted due to context."""
+        if principle not in self.context_exceptions:
+            return False
+            
+        # Get surrounding context (100 chars before and after)
+        context_start = max(0, match_pos - 100)
+        context_end = min(len(text), match_pos + 100)
+        context = text[context_start:context_end].lower()
+        
+        # Check if any exception phrases appear near the match
+        for exception in self.context_exceptions[principle]:
+            if exception.lower() in context:
+                return True
+        return False
     
     def evaluate(self, text: str) -> Tuple[float, List[Dict]]:
-        """Evaluate text for constitutional violations."""
+        """Evaluate text for constitutional violations with hierarchical scoring."""
         violations = []
-        total_severity = 0
+        critical_violations = 0
+        high_violations = 0
+        medium_violations = 0
+        low_violations = 0
         
         for principle_name, principle_data in self.principles.items():
             for i, pattern in enumerate(principle_data["compiled_patterns"]):
-                if pattern.search(text):
+                matches = list(pattern.finditer(text))
+                for match in matches:
+                    # Check context exceptions
+                    if self._check_context_exceptions(text, principle_name, match.start()):
+                        continue
+                        
                     violations.append({
                         "principle": principle_name,
                         "rule": principle_data["rule"],
                         "matched_pattern": principle_data["patterns"][i],
+                        "matched_text": match.group(),
+                        "position": match.start(),
                         "severity": principle_data["severity"]
                     })
-                    total_severity += principle_data["severity"]
+                    
+                    # Count violations by severity
+                    if principle_data["severity"] >= 1.0:
+                        critical_violations += 1
+                    elif principle_data["severity"] >= 0.8:
+                        high_violations += 1
+                    elif principle_data["severity"] >= 0.5:
+                        medium_violations += 1
+                    else:
+                        low_violations += 1
         
-        # Calculate safety score (1.0 = perfectly safe, 0.0 = many severe violations)
-        safety_score = max(0, 1.0 - (total_severity / len(self.principles)))
+        # Hierarchical safety score calculation
+        # ANY critical violation = immediate failure
+        if critical_violations > 0:
+            safety_score = 0.0
+        else:
+            # Calculate score with exponential penalties
+            # High severity violations have much stronger impact
+            high_penalty = 1 - (0.7 ** high_violations) if high_violations > 0 else 0
+            medium_penalty = 1 - (0.85 ** medium_violations) if medium_violations > 0 else 0
+            low_penalty = 1 - (0.95 ** low_violations) if low_violations > 0 else 0
+            
+            # Weighted combination with high violations having most impact
+            total_penalty = (high_penalty * 0.6) + (medium_penalty * 0.3) + (low_penalty * 0.1)
+            safety_score = max(0, 1.0 - total_penalty)
         
         return safety_score, violations
     
@@ -59,6 +127,38 @@ class MeditationConstitution:
             if safety_score <= self.safety_thresholds[level]:
                 return level
         return "safe"
+    
+    def get_detailed_report(self, text: str) -> Dict:
+        """Get comprehensive safety evaluation report."""
+        safety_score, violations = self.evaluate(text)
+        safety_level = self.get_safety_level(safety_score)
+        
+        # Group violations by principle
+        violations_by_principle = {}
+        for v in violations:
+            principle = v["principle"]
+            if principle not in violations_by_principle:
+                violations_by_principle[principle] = []
+            violations_by_principle[principle].append(v)
+        
+        # Count violations by severity
+        severity_counts = {
+            "critical": sum(1 for v in violations if v["severity"] >= 1.0),
+            "high": sum(1 for v in violations if 0.8 <= v["severity"] < 1.0),
+            "medium": sum(1 for v in violations if 0.5 <= v["severity"] < 0.8),
+            "low": sum(1 for v in violations if v["severity"] < 0.5)
+        }
+        
+        return {
+            "safety_score": safety_score,
+            "safety_level": safety_level,
+            "total_violations": len(violations),
+            "violations_by_severity": severity_counts,
+            "violations_by_principle": violations_by_principle,
+            "violations": violations,
+            "passed": safety_score >= self.safety_thresholds["low"],
+            "requires_intervention": safety_level in ["critical", "high"]
+        }
     
     def check_crisis_content(self, text: str) -> Dict:
         """Special check for crisis content that needs immediate resources."""

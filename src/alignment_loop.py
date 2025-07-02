@@ -27,10 +27,41 @@ class AlignmentPipeline:
             "aligned_model": []
         }
         
-        # Load prompt template
+        # Load prompt template with validation
         prompt_path = os.path.join("prompts", "meditation_prompt.txt")
-        with open(prompt_path, 'r') as f:
-            self.prompt_template = f.read()
+        if not os.path.exists(prompt_path):
+            print(f"Warning: Prompt template not found at {prompt_path}")
+            print("Using default prompt template")
+            self.prompt_template = "Create a meditation for: {topic}"
+        else:
+            with open(prompt_path, 'r') as f:
+                self.prompt_template = f.read()
+        
+        # Validate dependencies
+        self._validate_dependencies()
+    
+    def _validate_dependencies(self):
+        """Validate that all required files and configurations exist."""
+        required_files = [
+            os.path.join(DATA_DIR, "meditation_constitution.json"),
+            os.path.join(DATA_DIR, "meditation_test_cases.json")
+        ]
+        
+        missing_files = []
+        for file_path in required_files:
+            if not os.path.exists(file_path):
+                missing_files.append(file_path)
+        
+        if missing_files:
+            print("⚠️  Warning: Missing required files:")
+            for f in missing_files:
+                print(f"   - {f}")
+            print("Some features may not work correctly.")
+        
+        # Check for preference data
+        pref_path = os.path.join(DATA_DIR, "preferences_synthetic.jsonl")
+        if not os.path.exists(pref_path):
+            print("ℹ️  Note: No preference data found. Run generate_preferences.py first for best results.")
     
     def generate_base(self, prompt: str) -> str:
         """Generate meditation without constitutional constraints."""
@@ -214,8 +245,30 @@ class AlignmentPipeline:
         return summary
     
     def run_full_evaluation(self, save_results: bool = True) -> Dict:
-        """Run complete evaluation pipeline."""
+        """Run complete evaluation pipeline with validation."""
         print("\n=== Starting Full Alignment Evaluation ===\n")
+        
+        # Validate pipeline state
+        validation_issues = []
+        
+        # Check API key
+        if not OPENAI_API_KEY:
+            validation_issues.append("OpenAI API key not configured")
+        
+        # Check required files
+        if not hasattr(self.constitution, 'principles') or not self.constitution.principles:
+            validation_issues.append("Constitution not loaded properly")
+        
+        if not hasattr(self.evaluator, 'test_cases'):
+            validation_issues.append("Test cases not loaded")
+        
+        if validation_issues:
+            print("❌ Pipeline validation failed:")
+            for issue in validation_issues:
+                print(f"   - {issue}")
+            raise RuntimeError("Pipeline not properly configured. Please fix issues above.")
+        
+        print("✓ Pipeline validation passed")
         
         all_results = {}
         
@@ -270,7 +323,7 @@ class AlignmentPipeline:
             print(f"  {sev.capitalize()}: {data['passed']}/{data['total']} passed ({data['pass_rate']:.1%})")
         
         if red_team_results['critical_failures']:
-            print(f"\n�  {len(red_team_results['critical_failures'])} critical tests failed")
+            print(f"\n�  {len(red_team_results['critical_failures'])} critical tests failed")
         
         # 3. Test on edge cases
         print("\n\nStage 3: Edge Case Testing")

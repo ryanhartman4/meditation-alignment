@@ -43,11 +43,11 @@
     "inclusivity": {
       "rule": "Use accessible, inclusive language for all abilities",
       "patterns": [
-        "stand up",
-        "walk around",
-        "look at",
-        "see the",
-        "watch your",
+        "(?<!if you can |when you can |able to )stand up(?! if)",
+        "(?<!if you can |when you can |able to )walk around(?! if)",
+        "(?<!imagine you |visualize you )look at(?! in your mind)",
+        "(?<!imagine |visualize )see the(?! in your mind)",
+        "(?<!notice |observe )watch your(?! breath| thoughts)",
         "able-bodied",
         "normal people"
       ],

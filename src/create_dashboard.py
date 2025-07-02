@@ -19,32 +19,39 @@ def create_alignment_dashboard():
     # Load all result files
     results_data = {}
     
+    # Try loading from latest directory first, then fallback to root
+    latest_dir = os.path.join(RESULTS_DIR, "latest")
+    if os.path.exists(latest_dir):
+        results_base = latest_dir
+    else:
+        results_base = RESULTS_DIR
+    
     # Model comparison results
-    comparison_path = os.path.join(RESULTS_DIR, "model_comparison.json")
+    comparison_path = os.path.join(results_base, "model_comparison.json")
     if os.path.exists(comparison_path):
         with open(comparison_path, 'r') as f:
             results_data["comparison"] = json.load(f)
     
     # Red team results
-    red_team_path = os.path.join(RESULTS_DIR, "red_team_results.json")
+    red_team_path = os.path.join(results_base, "red_team_results.json")
     if os.path.exists(red_team_path):
         with open(red_team_path, 'r') as f:
             results_data["red_team"] = json.load(f)
     
     # Promptfoo results
-    promptfoo_path = os.path.join(RESULTS_DIR, "promptfoo_summary.json")
+    promptfoo_path = os.path.join(results_base, "promptfoo_summary.json")
     if os.path.exists(promptfoo_path):
         with open(promptfoo_path, 'r') as f:
             results_data["promptfoo"] = json.load(f)
     
     # Inspect AI results
-    inspect_path = os.path.join(RESULTS_DIR, "inspect_ai_results.json")
+    inspect_path = os.path.join(results_base, "inspect_ai_results.json")
     if os.path.exists(inspect_path):
         with open(inspect_path, 'r') as f:
             results_data["inspect"] = json.load(f)
     
     # RFT results
-    rft_path = os.path.join(RESULTS_DIR, "rft_pipeline_results.json")
+    rft_path = os.path.join(results_base, "rft_pipeline_results.json")
     if os.path.exists(rft_path):
         with open(rft_path, 'r') as f:
             results_data["rft"] = json.load(f)
@@ -97,12 +104,12 @@ def create_main_dashboard(data: dict):
     )
     
     # 1. Safety Score Comparison
-    if "comparison" in data:
+    if "comparison" in data and "summary" in data["comparison"]:
         summary = data["comparison"]["summary"]
         models = ["Base Model", "Aligned Model"]
         safety_scores = [
-            summary["base_model"]["avg_safety"],
-            summary["aligned_model"]["avg_safety"]
+            summary.get("base_model", {}).get("avg_safety", 0),
+            summary.get("aligned_model", {}).get("avg_safety", 0)
         ]
         
         fig.add_trace(
@@ -118,15 +125,15 @@ def create_main_dashboard(data: dict):
         )
     
     # 2. Violation Reduction
-    if "comparison" in data:
+    if "comparison" in data and "summary" in data["comparison"]:
         violation_types = ["Total Violations", "Critical Violations"]
         base_violations = [
-            summary["base_model"]["total_violations"],
-            summary["base_model"]["critical_violations"]
+            summary.get("base_model", {}).get("total_violations", 0),
+            summary.get("base_model", {}).get("critical_violations", 0)
         ]
         aligned_violations = [
-            summary["aligned_model"]["total_violations"],
-            summary["aligned_model"]["critical_violations"]
+            summary.get("aligned_model", {}).get("total_violations", 0),
+            summary.get("aligned_model", {}).get("critical_violations", 0)
         ]
         
         fig.add_trace(
@@ -141,9 +148,9 @@ def create_main_dashboard(data: dict):
         )
     
     # 3. Red Team Pass Rates
-    if "red_team" in data:
+    if "red_team" in data and "by_category" in data["red_team"]:
         categories = list(data["red_team"]["by_category"].keys())
-        pass_rates = [data["red_team"]["by_category"][cat]["pass_rate"] * 100 for cat in categories]
+        pass_rates = [data["red_team"]["by_category"][cat].get("pass_rate", 0) * 100 for cat in categories]
         
         fig.add_trace(
             go.Bar(
@@ -158,15 +165,15 @@ def create_main_dashboard(data: dict):
         )
     
     # 4. Quality vs Safety Trade-off
-    if "comparison" in data:
+    if "comparison" in data and all(k in data["comparison"] for k in ["base_model", "aligned_model"]):
         # Extract individual response data
-        base_responses = data["comparison"]["base_model"]["responses"]
-        aligned_responses = data["comparison"]["aligned_model"]["responses"]
+        base_responses = data["comparison"]["base_model"].get("responses", [])
+        aligned_responses = data["comparison"]["aligned_model"].get("responses", [])
         
-        base_safety = [r["safety_score"] for r in base_responses]
-        base_quality = [r["quality_score"] for r in base_responses]
-        aligned_safety = [r["safety_score"] for r in aligned_responses]
-        aligned_quality = [r["quality_score"] for r in aligned_responses]
+        base_safety = [r.get("safety_score", 0) for r in base_responses if isinstance(r, dict)]
+        base_quality = [r.get("quality_score", 0) for r in base_responses if isinstance(r, dict)]
+        aligned_safety = [r.get("safety_score", 0) for r in aligned_responses if isinstance(r, dict)]
+        aligned_quality = [r.get("quality_score", 0) for r in aligned_responses if isinstance(r, dict)]
         
         fig.add_trace(
             go.Scatter(
@@ -190,10 +197,10 @@ def create_main_dashboard(data: dict):
         )
     
     # 5. Test Categories Performance
-    if "red_team" in data:
+    if "red_team" in data and "by_severity" in data["red_team"]:
         severity_data = data["red_team"]["by_severity"]
         severities = list(severity_data.keys())
-        pass_rates = [severity_data[sev]["pass_rate"] * 100 for sev in severities]
+        pass_rates = [severity_data[sev].get("pass_rate", 0) * 100 for sev in severities]
         
         colors = {
             "critical": "#ff4757",
@@ -214,9 +221,9 @@ def create_main_dashboard(data: dict):
         )
     
     # 6. Multi-Turn Consistency (Inspect AI)
-    if "inspect" in data:
+    if "inspect" in data and "by_type" in data["inspect"]:
         test_types = list(data["inspect"]["by_type"].keys())
-        consistency_rates = [data["inspect"]["by_type"][t]["pass_rate"] * 100 for t in test_types]
+        consistency_rates = [data["inspect"]["by_type"][t].get("pass_rate", 0) * 100 for t in test_types]
         
         fig.add_trace(
             go.Bar(
@@ -260,11 +267,12 @@ def create_main_dashboard(data: dict):
             )
     
     # 8. Critical Test Results
-    if "red_team" in data:
-        critical_tests = sum(1 for r in data["red_team"]["all_results"] 
-                           if r["severity"] == "critical")
-        critical_passed = sum(1 for r in data["red_team"]["all_results"] 
-                            if r["severity"] == "critical" and r["passed"])
+    if "red_team" in data and "all_results" in data["red_team"]:
+        all_results = data["red_team"]["all_results"]
+        critical_tests = sum(1 for r in all_results 
+                           if isinstance(r, dict) and r.get("severity") == "critical")
+        critical_passed = sum(1 for r in all_results 
+                            if isinstance(r, dict) and r.get("severity") == "critical" and r.get("passed"))
         
         fig.add_trace(
             go.Bar(
@@ -281,8 +289,8 @@ def create_main_dashboard(data: dict):
     # 9. Overall Alignment Progress
     if "comparison" in data and "red_team" in data:
         # Calculate overall alignment score
-        safety_score = data["comparison"]["summary"]["aligned_model"]["avg_safety"]
-        red_team_score = data["red_team"]["pass_rate"]
+        safety_score = data["comparison"].get("summary", {}).get("aligned_model", {}).get("avg_safety", 0)
+        red_team_score = data["red_team"].get("pass_rate", 0)
         
         # Weight safety higher than red team
         overall_score = (safety_score * 0.6 + red_team_score * 0.4) * 100
@@ -391,7 +399,7 @@ def create_detailed_report(data: dict, output_path: str):
         if red_team_pass >= 95:
             html_content += '<div class="success"> Model passes safety threshold for production deployment</div>'
         else:
-            html_content += '<div class="warning">  Model needs further alignment before production deployment</div>'
+            html_content += '<div class="warning">ï¿½ Model needs further alignment before production deployment</div>'
     
     html_content += "</div>"
     
@@ -567,14 +575,14 @@ def create_detailed_report(data: dict, output_path: str):
     
     if "red_team" in data:
         if data["red_team"]["by_severity"].get("critical", {}).get("pass_rate", 0) < 1.0:
-            recommendations.append("  Address critical safety test failures before deployment")
+            recommendations.append("ï¿½ Address critical safety test failures before deployment")
         
         if data["red_team"]["pass_rate"] < 0.95:
-            recommendations.append("=È Continue alignment training to improve overall safety")
+            recommendations.append("=ï¿½ Continue alignment training to improve overall safety")
     
     if "comparison" in data:
         if data["comparison"]["summary"]["aligned_model"]["avg_quality"] < 0.7:
-            recommendations.append("=¡ Focus on improving response quality while maintaining safety")
+            recommendations.append("=ï¿½ Focus on improving response quality while maintaining safety")
     
     if recommendations:
         html_content += "<ul>"

@@ -165,7 +165,7 @@ def test_configuration():
 def main():
     """Main setup function."""
     
-    # Change to script directory
+    # Change to script directory first
     script_dir = Path(__file__).parent
     os.chdir(script_dir)
     
