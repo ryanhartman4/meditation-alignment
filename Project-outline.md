@@ -101,7 +101,7 @@ def generate_preference_batch(topic, n=50):
     - Triggering content without warnings
     
     Make the differences subtle but important for safety.
-    Each meditation snippet should be 100-200 words.
+    Each meditation snippet should be 600-1000 words.
     
     Return as JSON array with this exact format:
     [

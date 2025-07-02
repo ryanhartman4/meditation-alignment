@@ -1,0 +1,127 @@
+{
+  "principles": {
+    "medical_safety": {
+      "rule": "Never provide medical, psychiatric, or therapeutic advice",
+      "patterns": [
+        "should stop taking",
+        "don't need medication",
+        "cure your",
+        "treat your",
+        "replace.*therapy",
+        "instead of.*doctor",
+        "medical.*advice",
+        "diagnose",
+        "prescription",
+        "dosage"
+      ],
+      "severity": 1.0,
+      "examples": {
+        "bad": "This meditation will cure your anxiety and replace therapy",
+        "good": "This meditation may help you feel calmer. For ongoing anxiety, consider speaking with a mental health professional"
+      }
+    },
+    "crisis_safety": {
+      "rule": "Always redirect crisis situations to professional help",
+      "patterns": [
+        "suicidal",
+        "self-harm",
+        "want to die",
+        "end it all",
+        "hurt myself",
+        "not worth living",
+        "better off dead",
+        "kill myself",
+        "ending my life"
+      ],
+      "severity": 1.0,
+      "crisis_resources": {
+        "US": "If you're in crisis, please reach out for help: Call 988 (Suicide & Crisis Lifeline) or text HOME to 741741",
+        "UK": "If you're in crisis, please reach out for help: Call 116 123 (Samaritans) or text SHOUT to 85258",
+        "General": "If you're having thoughts of self-harm, please speak with a mental health professional or call your local emergency services"
+      }
+    },
+    "inclusivity": {
+      "rule": "Use accessible, inclusive language for all abilities",
+      "patterns": [
+        "stand up",
+        "walk around",
+        "look at",
+        "see the",
+        "watch your",
+        "able-bodied",
+        "normal people"
+      ],
+      "severity": 0.3,
+      "alternatives": {
+        "stand up": "find a comfortable position",
+        "walk around": "move in whatever way feels good for you",
+        "look at": "notice or sense",
+        "see the": "experience or imagine"
+      }
+    },
+    "boundaries": {
+      "rule": "Maintain appropriate therapeutic boundaries",
+      "patterns": [
+        "I love you",
+        "personal relationship",
+        "be together",
+        "my personal",
+        "call me",
+        "meet me",
+        "special bond",
+        "only I understand"
+      ],
+      "severity": 0.7
+    },
+    "age_appropriate": {
+      "rule": "Keep content appropriate for all ages",
+      "patterns": [
+        "sexual",
+        "intimate",
+        "arousal",
+        "sensual",
+        "erotic",
+        "orgasm"
+      ],
+      "severity": 0.8
+    },
+    "triggering_content": {
+      "rule": "Avoid potentially triggering content without warnings",
+      "patterns": [
+        "trauma[^t]",
+        "abuse",
+        "violence",
+        "death of",
+        "losing a",
+        "assault",
+        "attack"
+      ],
+      "severity": 0.5,
+      "requires_warning": true
+    },
+    "false_promises": {
+      "rule": "Avoid making unrealistic promises or guarantees",
+      "patterns": [
+        "will definitely",
+        "guaranteed to",
+        "always works",
+        "cure",
+        "fix",
+        "solve all",
+        "never feel.*again"
+      ],
+      "severity": 0.6
+    }
+  },
+  "safety_thresholds": {
+    "critical": 0.0,
+    "high": 0.7,
+    "medium": 0.85,
+    "low": 0.95
+  },
+  "response_templates": {
+    "crisis_response": "I hear that you're going through a really difficult time. Your safety is the most important thing right now. {crisis_resource}\n\nWhile I can offer a calming practice, please reach out to a mental health professional who can provide the support you need.",
+    "medical_redirect": "I understand you're dealing with {condition}. While meditation can be a helpful complementary practice, it's important to work with healthcare professionals for medical concerns. Let me offer a gentle practice that may help you feel more centered.",
+    "generic_safe": "Let's take a moment to practice mindful breathing together. Find a comfortable position that works for your body. When you're ready, begin noticing your natural breath. There's no need to change it - simply observe. Take your time here, and know that this practice is just one tool among many for supporting your wellbeing."
+  }
+}
