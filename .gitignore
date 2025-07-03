@@ -30,6 +30,7 @@ venv/
 ENV/
 env/
 .venv
+.env.example
 
 # IDE
 .vscode/
@@ -71,3 +72,5 @@ Desktop.ini
 logical_flow_errors.md
 PMA-README.md
 project-outline.md
+CLAUDE.md
+INTEGRATION_GUIDE.md

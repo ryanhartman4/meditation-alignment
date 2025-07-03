@@ -12,7 +12,9 @@ from tqdm import tqdm
 from datetime import datetime
 from config import (OPENAI_API_KEY, CRITIC_MODEL, DATA_DIR, 
                    PREFERENCE_PAIRS_PER_TOPIC, PREFERENCE_BATCH_SIZE,
-                   MAX_TOKENS_PER_BATCH, TOKEN_PRICING, MAX_API_COST_USD)
+                   MAX_TOKENS_PER_BATCH, TOKEN_PRICING, MAX_API_COST_USD,
+                   get_preference_generation_prompt)
+from api_utils import make_api_call_with_retry
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -23,6 +25,22 @@ def estimate_tokens(text: str) -> int:
     """Rough estimate of tokens (1 token ≈ 4 characters)."""
     return len(text) // 4
 
+def check_cost_before_call(model: str, estimated_prompt_tokens: int, max_output_tokens: int):
+    """Check if API call would exceed cost limit before making it."""
+    pricing = TOKEN_PRICING.get(model, TOKEN_PRICING["gpt-4o-mini"])
+    
+    # Estimate worst-case cost (assuming max output tokens)
+    estimated_cost = (estimated_prompt_tokens * pricing["input"]) + (max_output_tokens * pricing["output"])
+    
+    if api_costs["total"] + estimated_cost > MAX_API_COST_USD:
+        raise RuntimeError(
+            f"API call would exceed cost limit. Current: ${api_costs['total']:.2f}, "
+            f"Estimated call cost: ${estimated_cost:.4f}, Limit: ${MAX_API_COST_USD}"
+        )
+    
+    if api_costs["total"] + estimated_cost > MAX_API_COST_USD * 0.9:
+        print(f" Warning: Next call may exceed budget. Current: ${api_costs['total']:.2f}")
+
 def track_api_cost(model: str, input_tokens: int, output_tokens: int):
     """Track API costs and warn if approaching limit."""
     pricing = TOKEN_PRICING.get(model, TOKEN_PRICING["gpt-4o-mini"])
@@ -31,42 +49,34 @@ def track_api_cost(model: str, input_tokens: int, output_tokens: int):
     api_costs["calls"] += 1
     
     if api_costs["total"] > MAX_API_COST_USD * 0.8:
-        print(f"⚠️  Warning: API costs at ${api_costs['total']:.2f} (80% of ${MAX_API_COST_USD} limit)")
+        print(f" Warning: API costs at ${api_costs['total']:.2f} (80% of ${MAX_API_COST_USD} limit)")
     
-    if api_costs["total"] > MAX_API_COST_USD:
-        raise RuntimeError(f"API cost limit exceeded: ${api_costs['total']:.2f} > ${MAX_API_COST_USD}")
-    
-    return cost
+    return api_costs["total"]
 
-def generate_preference_batch(topic: str, n: int = PREFERENCE_BATCH_SIZE, retry_count: int = 3) -> List[Dict]:
-    """Generate n preference pairs for a given meditation topic."""
+def generate_preference_batch(topic: str, n: int = PREFERENCE_BATCH_SIZE) -> List[Dict]:
+    """Generate n preference pairs for a given meditation topic using production prompt system."""
     
-    prompt = f"""Generate exactly {n} preference pairs for meditation on '{topic}'.
-    For each pair, create one GOOD (safe, helpful) and one BAD (potentially harmful) response.
+    # Use centralized production prompt system for consistency
+    base_prompt = get_preference_generation_prompt(topic, safety_enhanced=True)
     
-    The BAD responses should include realistic problems like:
-    - Medical advice (e.g., "this will cure your anxiety")
-    - Inappropriate crisis handling (e.g., "meditation is all you need for depression") 
-    - Non-inclusive language (e.g., requiring physical abilities without alternatives)
-    - Boundary violations (e.g., overly personal language)
-    - Triggering content without warnings
-    - False promises or guarantees
-    
-    Make the differences subtle but important for safety.
-    Each meditation snippet should be 100-150 words to stay within token limits.
-    
-    Return a JSON object with a 'preferences' key containing the array:
+    # Add specific batch generation instructions
+    prompt = f"""{base_prompt}
+
+BATCH GENERATION INSTRUCTIONS:
+Generate exactly {n} preference pairs as a JSON object with this structure:
+{{
+  "preferences": [
     {{
-      "preferences": [
-        {{
-          "chosen": "good meditation text here...",
-          "rejected": "problematic meditation text here...",
-          "violation_type": "medical_advice|crisis_content|non_inclusive|boundary_violation|triggering|false_promises",
-          "explanation": "why the rejected version is problematic"
-        }}
-      ]
+      "chosen": "safe meditation following all production guidelines...",
+      "rejected": "problematic meditation with realistic safety violations...",
+      "violation_type": "medical_advice|crisis_content|non_inclusive|boundary_violation|triggering|false_promises",
+      "explanation": "specific safety issue in the rejected version"
     }}
-    """
+  ]
+}}
+
+Each meditation should be 150-300 words to match production quality.
+Make violations subtle but safety-critical - the kind that alignment systems must catch."""
     
     # Estimate tokens to check if within limits
     prompt_tokens = estimate_tokens(prompt)
@@ -75,64 +85,87 @@ def generate_preference_batch(topic: str, n: int = PREFERENCE_BATCH_SIZE, retry_
     if prompt_tokens + expected_output_tokens > MAX_TOKENS_PER_BATCH:
         print(f"Warning: Batch size {n} may exceed token limits. Consider reducing.")
     
-    for attempt in range(retry_count):
-        try:
-            response = client.chat.completions.create(
-                model=CRITIC_MODEL,
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant that generates training data for AI safety. Always return valid JSON."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.8,
-                max_tokens=min(MAX_TOKENS_PER_BATCH, expected_output_tokens),
-                response_format={"type": "json_object"}
-            )
-            
-            # Track costs
-            usage = response.usage
-            cost = track_api_cost(CRITIC_MODEL, usage.prompt_tokens, usage.completion_tokens)
-            
-            content = response.choices[0].message.content
-            
-            # Parse JSON properly
-            try:
-                parsed = json.loads(content)
-                
-                # Validate structure
-                if isinstance(parsed, dict) and "preferences" in parsed:
-                    preferences = parsed["preferences"]
-                    if isinstance(preferences, list):
-                        # Validate each preference
-                        valid_prefs = []
-                        for pref in preferences:
-                            if all(key in pref for key in ["chosen", "rejected", "violation_type", "explanation"]):
-                                valid_prefs.append(pref)
-                        return valid_prefs
-                
-                # If structure is unexpected, log and retry
-                print(f"Unexpected JSON structure on attempt {attempt + 1}")
-                
-            except json.JSONDecodeError as e:
-                print(f"JSON parsing error on attempt {attempt + 1}: {e}")
-                if attempt < retry_count - 1:
-                    time.sleep(2 ** attempt)  # Exponential backoff
-                    continue
-                    
-            return []
-            
-        except Exception as e:
-            print(f"Error generating batch for {topic} (attempt {attempt + 1}): {e}")
-            if attempt < retry_count - 1:
-                time.sleep(2 ** attempt)  # Exponential backoff
-                continue
-            return []
+    # Pre-check cost before making the call
+    system_msg = """You are an expert AI safety researcher specializing in meditation and mental health content generation. Your task is to create high-quality training data for AI alignment systems.
+
+CORE MISSION: Generate preference pairs that teach AI systems to distinguish between safe and unsafe meditation guidance. This data will be used to train safety classifiers and alignment systems.
+
+EXPERTISE AREAS:
+- Meditation practices and techniques
+- Mental health considerations and contraindications  
+- AI safety principles and failure modes
+- Subtle but critical safety violations in wellness content
+
+QUALITY STANDARDS:
+- Create realistic, nuanced examples that challenge safety systems
+- Ensure violations are subtle enough to require sophisticated detection
+- Make safe versions genuinely helpful while avoiding all safety issues
+- Generate content that mirrors real-world meditation guidance quality
+
+OUTPUT REQUIREMENTS:
+- Always return valid, properly formatted JSON
+- Maintain consistent structure across all examples
+- Ensure each preference pair clearly demonstrates the safety distinction
+- Include specific, actionable explanations for each violation type
+
+Remember: This training data directly impacts AI safety systems that protect vulnerable users seeking meditation guidance."""
+    prompt_tokens = estimate_tokens(system_msg + prompt)
+    check_cost_before_call(CRITIC_MODEL, prompt_tokens, expected_output_tokens)
     
-    return []
+    # Use exponential backoff retry for API call
+    try:
+        response = make_api_call_with_retry(
+            client=client,
+            model=CRITIC_MODEL,
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.8,
+            max_tokens=min(MAX_TOKENS_PER_BATCH, expected_output_tokens),
+            response_format={"type": "json_object"}
+        )
+        
+        # Track costs and enforce limit
+        usage = response.usage
+        current_cost = track_api_cost(CRITIC_MODEL, usage.prompt_tokens, usage.completion_tokens)
+        if current_cost > MAX_API_COST_USD:
+            raise RuntimeError(f"API cost limit exceeded: ${current_cost:.2f} > ${MAX_API_COST_USD}")
+        
+        content = response.choices[0].message.content
+        
+        # Parse JSON properly
+        try:
+            parsed = json.loads(content)
+            
+            # Validate structure
+            if isinstance(parsed, dict) and "preferences" in parsed:
+                preferences = parsed["preferences"]
+                if isinstance(preferences, list):
+                    # Validate each preference
+                    valid_prefs = []
+                    for pref in preferences:
+                        if all(key in pref for key in ["chosen", "rejected", "violation_type", "explanation"]):
+                            valid_prefs.append(pref)
+                    return valid_prefs
+            
+            # If structure is unexpected, log and return empty
+            print(f"Unexpected JSON structure from API")
+            return []
+            
+        except json.JSONDecodeError as e:
+            print(f"JSON parsing error: {e}")
+            return []
+            
+    except Exception as e:
+        print(f"Error generating batch for {topic}: {e}")
+        return []
 
 def generate_all_preferences():
     """Generate preference dataset for multiple topics."""
     
     topics = [
+        # Core mental health conditions
         "anxiety relief",
         "depression support", 
         "trauma healing",
@@ -142,14 +175,70 @@ def generate_all_preferences():
         "sleep difficulties",
         "chronic pain",
         "self-esteem",
-        "anger management"
+        "anger management",
+        
+        # Relationship and social issues
+        "relationship conflicts",
+        "social anxiety",
+        "loneliness and isolation",
+        "family stress",
+        "workplace stress",
+        "boundary setting",
+        
+        # Life transitions and challenges
+        "career transitions",
+        "divorce and breakups",
+        "parenting stress",
+        "aging and mortality",
+        "financial stress",
+        "academic pressure",
+        
+        # Spiritual and existential topics
+        "spiritual awakening",
+        "meaning and purpose",
+        "forgiveness practices",
+        "ego dissolution",
+        "death contemplation",
+        "religious conflict",
+        
+        # Physical and health-related
+        "illness and healing",
+        "body image issues",
+        "eating disorders",
+        "chronic fatigue",
+        "pain management",
+        "surgery recovery",
+        
+        # Specific populations
+        "teen meditation",
+        "elder care meditation",
+        "pregnancy meditation",
+        "veterans and PTSD",
+        "healthcare workers",
+        "first responders",
+        
+        # Advanced practices (higher risk)
+        "breathwork and pranayama",
+        "visualization techniques",
+        "chakra meditation",
+        "energy healing",
+        "past life regression",
+        "shadow work",
+        
+        # Crisis and emergency situations
+        "suicidal ideation",
+        "self-harm urges",
+        "psychotic episodes",
+        "dissociation",
+        "flashbacks",
+        "panic disorder"
     ]
     
     all_preferences = []
     
     # Cost estimation
     total_pairs_needed = len(topics) * PREFERENCE_PAIRS_PER_TOPIC
-    estimated_tokens = total_pairs_needed * 400  # ~400 tokens per pair
+    estimated_tokens = total_pairs_needed * 1000  # ~1000 tokens per pair
     estimated_cost = (estimated_tokens / 1000) * TOKEN_PRICING[CRITIC_MODEL]["output"]
     
     print(f"Generating synthetic preference dataset...")

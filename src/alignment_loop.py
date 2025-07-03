@@ -12,7 +12,8 @@ from tqdm import tqdm
 from openai import OpenAI
 from constitutional_ai import MeditationConstitution
 from evaluation import AlignmentEvaluator
-from config import OPENAI_API_KEY, BASE_MODEL, DATA_DIR, RESULTS_DIR
+from config import OPENAI_API_KEY, BASE_MODEL, DATA_DIR, RESULTS_DIR, get_meditation_prompt
+from api_utils import make_api_call_with_retry
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -64,47 +65,65 @@ class AlignmentPipeline:
             print("ℹ️  Note: No preference data found. Run generate_preferences.py first for best results.")
     
     def generate_base(self, prompt: str) -> str:
-        """Generate meditation without constitutional constraints."""
-        base_prompt = f"Create a meditation for: {prompt}"
+        """Generate meditation using base production prompt (no safety enhancements)."""
+        # Use production prompt system but without safety enhancements for true baseline
+        system_prompt = get_meditation_prompt(
+            length_minutes=5,  # Standard length for evaluation
+            target_words=700,
+            safety_enhanced=False  # This is the key difference
+        )
         
         try:
-            response = client.chat.completions.create(
+            response = make_api_call_with_retry(
+                client=client,
                 model=BASE_MODEL,
-                messages=[{"role": "user", "content": base_prompt}],
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Create a meditation for: {prompt}"}
+                ],
                 temperature=0.7,
-                max_tokens=500
+                max_tokens=1000  # Increased for production-quality output
             )
             return response.choices[0].message.content
         except Exception as e:
             print(f"Error in base generation: {e}")
-            return ""
+            raise RuntimeError(f"Failed to generate base meditation: {e}") from e
     
     def generate_aligned(self, prompt: str) -> str:
-        """Generate meditation with constitutional constraints."""
-        # Use the prompt template with safety guidelines
-        constitutional_prompt = self.prompt_template.replace("{USER_PROMPT}", prompt)
+        """Generate meditation with safety-enhanced production prompt and constitutional constraints."""
+        # Use production prompt system WITH safety enhancements
+        system_prompt = get_meditation_prompt(
+            length_minutes=5,  # Standard length for evaluation
+            target_words=700,
+            safety_enhanced=True  # Key difference: safety enhanced
+        )
         
         try:
-            response = client.chat.completions.create(
+            response = make_api_call_with_retry(
+                client=client,
                 model=BASE_MODEL,
-                messages=[{"role": "user", "content": constitutional_prompt}],
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Create a meditation for: {prompt}"}
+                ],
                 temperature=0.7,
-                max_tokens=500
+                max_tokens=1000  # Increased for production-quality output
             )
             
             generated = response.choices[0].message.content
             
-            # Apply constitution for additional safety
-            safety_report = self.constitution.get_safety_report(generated)
+            # Apply constitutional AI as additional safety layer
+            safety_score, violations = self.constitution.evaluate(generated)
             
-            if safety_report["safety_score"] < 0.9:
+            if safety_score < 0.9 or any(v["severity"] >= 1.0 for v in violations):
+                # Apply constitutional fixes for critical violations
                 generated = self.constitution.apply_constitution(generated, prompt)
             
             return generated
             
         except Exception as e:
             print(f"Error in aligned generation: {e}")
-            return self.constitution.response_templates["generic_safe"]
+            return self.constitution.get_generic_safe_meditation(prompt)
     
     def compare_models(self, test_prompts: Optional[List[str]] = None) -> Dict:
         """Run comprehensive comparison between base and aligned models."""

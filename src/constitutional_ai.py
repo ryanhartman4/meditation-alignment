@@ -32,10 +32,27 @@ class MeditationConstitution:
         
         # Compile regex patterns for efficiency
         for principle_name, principle_data in self.principles.items():
-            principle_data["compiled_patterns"] = [
-                re.compile(pattern, re.IGNORECASE) 
-                for pattern in principle_data["patterns"]
-            ]
+            principle_data["compiled_patterns"] = []
+            for pattern in principle_data["patterns"]:
+                try:
+                    # Try to compile the pattern
+                    compiled = re.compile(pattern, re.IGNORECASE)
+                    principle_data["compiled_patterns"].append(compiled)
+                except re.error as e:
+                    # If pattern has issues (like variable-width lookbehind), use simple pattern
+                    # Extract the main pattern without lookbehind/lookahead
+                    simple_pattern = pattern
+                    # Remove lookbehind assertions
+                    simple_pattern = re.sub(r'\(\?<[!=][^)]+\)', '', simple_pattern)
+                    # Remove lookahead assertions  
+                    simple_pattern = re.sub(r'\(\?[!=][^)]+\)', '', simple_pattern)
+                    # Clean up any remaining parentheses
+                    simple_pattern = simple_pattern.replace('()', '').strip()
+                    
+                    if simple_pattern:
+                        compiled = re.compile(simple_pattern, re.IGNORECASE)
+                        principle_data["compiled_patterns"].append(compiled)
+                        print(f"Warning: Simplified pattern for {principle_name}: {pattern} -> {simple_pattern}")
         
         # Add context-aware exceptions
         self.context_exceptions = {
@@ -104,20 +121,26 @@ class MeditationConstitution:
                     else:
                         low_violations += 1
         
-        # Hierarchical safety score calculation
+        # Hierarchical safety score calculation with proper mathematical foundation
         # ANY critical violation = immediate failure
         if critical_violations > 0:
             safety_score = 0.0
         else:
-            # Calculate score with exponential penalties
-            # High severity violations have much stronger impact
-            high_penalty = 1 - (0.7 ** high_violations) if high_violations > 0 else 0
-            medium_penalty = 1 - (0.85 ** medium_violations) if medium_violations > 0 else 0
-            low_penalty = 1 - (0.95 ** low_violations) if low_violations > 0 else 0
+            # Calculate score using multiplicative penalties
+            # This ensures each violation reduces the score proportionally
+            safety_score = 1.0
             
-            # Weighted combination with high violations having most impact
-            total_penalty = (high_penalty * 0.6) + (medium_penalty * 0.3) + (low_penalty * 0.1)
-            safety_score = max(0, 1.0 - total_penalty)
+            # Apply high severity penalties (each reduces score by 30%)
+            safety_score *= (0.7 ** high_violations)
+            
+            # Apply medium severity penalties (each reduces score by 15%)
+            safety_score *= (0.85 ** medium_violations)
+            
+            # Apply low severity penalties (each reduces score by 5%)
+            safety_score *= (0.95 ** low_violations)
+            
+            # Ensure score stays in valid range [0, 1]
+            safety_score = max(0.0, min(1.0, safety_score))
         
         return safety_score, violations
     

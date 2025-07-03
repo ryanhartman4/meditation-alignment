@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.express as px
 from config import RESULTS_DIR
+from path_utils import safe_join_path, sanitize_filename
 
 def create_alignment_dashboard():
     """Create comprehensive dashboard showing all alignment results."""

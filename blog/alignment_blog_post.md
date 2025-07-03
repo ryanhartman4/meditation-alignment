@@ -1,6 +1,6 @@
 # Building Production-Ready AI Alignment: A One-Night Sprint
 
-*How I built a comprehensive AI safety system for a meditation app in a single night, using the same techniques as frontier AI labs*
+*How I built a comprehensive AI safety system for my meditation app in a single night, using the same techniques as frontier AI labs*
 
 ## The Challenge
 
@@ -79,7 +79,7 @@ tests:
 ### 5. O4-Mini Reinforcement Fine-Tuning
 
 For the ultimate safety boost, I implemented a complete RFT pipeline:
-1. Grade preference pairs using GPT-4
+1. Grade preference pairs using GPT-4o
 2. Filter for high-quality training examples
 3. Fine-tune the model on safety-aligned data
 4. Evaluate improvements across all metrics
@@ -151,7 +151,7 @@ Several areas could enhance the system:
 
 ## Open Source Release
 
-The complete codebase is available at [github.com/yourusername/meditation-alignment](https://github.com/yourusername/meditation-alignment). You can run the entire pipeline yourself in 15-30 minutes (excluding RFT).
+The complete codebase is available at [github.com/ryanhartman4/meditation-alignment](https://github.com/ryanhartman4/meditation-alignment). You can run the entire pipeline yourself in 15-30 minutes (excluding RFT).
 
 ## Conclusion
 
@@ -163,6 +163,6 @@ As AI becomes more prevalent in mental health and wellness applications, these a
 
 ---
 
-*Have questions or want to discuss AI safety? Reach out on Twitter [@yourusername](https://twitter.com/yourusername) or check out the [project repository](https://github.com/yourusername/meditation-alignment).*
+*Have questions or want to discuss AI safety? Reach out on Twitter [@theryanhartman](https://twitter.com/theryanhartman) or check out the [project repository](https://github.com/yourusername/meditation-alignment).*
 
 *Special thanks to the AI safety community for pioneering these techniques and making them accessible to all developers.*

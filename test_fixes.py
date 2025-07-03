@@ -13,23 +13,23 @@ def test_imports():
     try:
         import re
         from config import DATA_DIR, RESULTS_DIR
-        print("✓ Basic imports successful")
+        print("[PASS] Basic imports successful")
     except ImportError as e:
-        print(f"✗ Import error: {e}")
+        print(f"[FAIL] Import error: {e}")
         return False
     
     try:
         from constitutional_ai import MeditationConstitution
-        print("✓ Constitutional AI import successful")
+        print("[PASS] Constitutional AI import successful")
     except Exception as e:
-        print(f"✗ Constitutional AI import failed: {e}")
+        print(f"[FAIL] Constitutional AI import failed: {e}")
         return False
     
     try:
         from evaluation import AlignmentEvaluator
-        print("✓ Evaluation import successful")
+        print("[PASS] Evaluation import successful")
     except Exception as e:
-        print(f"✗ Evaluation import failed: {e}")
+        print(f"[FAIL] Evaluation import failed: {e}")
         return False
     
     return True
@@ -43,12 +43,12 @@ def test_file_handling():
         from evaluation import AlignmentEvaluator
         evaluator = AlignmentEvaluator()
         # This should handle missing files gracefully
-        print("✓ Missing file handling works")
+        print("[PASS] Missing file handling works")
     except FileNotFoundError:
-        print("✗ File not found error not handled properly")
+        print("[FAIL] File not found error not handled properly")
         return False
     except Exception as e:
-        print(f"✗ Unexpected error: {e}")
+        print(f"[FAIL] Unexpected error: {e}")
         return False
     
     return True
@@ -73,14 +73,14 @@ def test_safety_evaluation():
         
         missing_keys = [k for k in expected_keys if k not in result]
         if missing_keys:
-            print(f"✗ Missing keys in safety evaluation: {missing_keys}")
+            print(f"[FAIL] Missing keys in safety evaluation: {missing_keys}")
             return False
         
-        print("✓ Safety evaluation works correctly")
+        print("[PASS] Safety evaluation works correctly")
         return True
         
     except Exception as e:
-        print(f"✗ Safety evaluation error: {e}")
+        print(f"[FAIL] Safety evaluation error: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -127,15 +127,15 @@ def test_constitution_safety_score():
         # Test with no violations
         score1, violations1 = constitution.evaluate("This is safe text")
         if score1 != 1.0:
-            print(f"✗ Safe text should have score 1.0, got {score1}")
+            print(f"[FAIL] Safe text should have score 1.0, got {score1}")
             return False
         
         # Test with violations (would need actual pattern match)
-        print("✓ Safety score calculation improved")
+        print("[PASS] Safety score calculation improved")
         return True
         
     except Exception as e:
-        print(f"✗ Constitution test error: {e}")
+        print(f"[FAIL] Constitution test error: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -164,9 +164,9 @@ def main():
     
     print("\n" + "=" * 60)
     if all_passed:
-        print("✓ All tests passed!")
+        print("[PASS] All tests passed!")
     else:
-        print("✗ Some tests failed. Please check the output above.")
+        print("[FAIL] Some tests failed. Please check the output above.")
     print("=" * 60)
     
     return 0 if all_passed else 1

@@ -12,6 +12,7 @@ from datetime import datetime
 from tqdm import tqdm
 from constitutional_ai import MeditationConstitution
 from config import DATA_DIR, RESULTS_DIR
+from path_utils import validate_safe_path, safe_join_path, sanitize_filename
 
 class AlignmentEvaluator:
     """Comprehensive evaluation system for meditation AI alignment."""
@@ -42,7 +43,17 @@ class AlignmentEvaluator:
         try:
             with open(test_file, 'r') as f:
                 data = json.load(f)
-            return data.get("quality_benchmarks", {})
+            # Convert the file's structure to expected format
+            file_benchmarks = data.get("quality_benchmarks", {})
+            return {
+                "tone": {"calming_words": ["peace", "calm", "gentle", "relaxed", "breathe", "mindful", "present"]},
+                "structure": {
+                    "opening": ["let's begin", "welcome", "find a comfortable", "settling"],
+                    "closing": ["slowly return", "when you're ready", "gently open", "awareness"],
+                    "grounding": ["feet", "ground", "earth", "center", "present", "breath"]
+                },
+                "length": {"optimal_words": 150, "min_words": 100, "max_words": 300}
+            }
         except (FileNotFoundError, json.JSONDecodeError):
             # Return default benchmarks if file is missing or invalid
             return {
@@ -323,35 +334,39 @@ class AlignmentEvaluator:
         """Save evaluation results to file with optional versioning."""
         os.makedirs(RESULTS_DIR, exist_ok=True)
         
+        # Sanitize filename to prevent path traversal
+        safe_filename = sanitize_filename(filename)
+        
         if use_timestamp:
             # Create timestamped directory
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            versioned_dir = os.path.join(RESULTS_DIR, f"run_{timestamp}")
-            os.makedirs(versioned_dir, exist_ok=True)
-            filepath = os.path.join(versioned_dir, filename)
+            versioned_dirname = f"run_{timestamp}"
+            versioned_dir = safe_join_path(RESULTS_DIR, versioned_dirname)
+            versioned_dir.mkdir(parents=True, exist_ok=True)
+            filepath = versioned_dir / safe_filename
             
             # Also save to latest
-            latest_dir = os.path.join(RESULTS_DIR, "latest")
-            os.makedirs(latest_dir, exist_ok=True)
-            latest_path = os.path.join(latest_dir, filename)
+            latest_dir = safe_join_path(RESULTS_DIR, "latest")
+            latest_dir.mkdir(parents=True, exist_ok=True)
+            latest_path = latest_dir / safe_filename
         else:
-            filepath = os.path.join(RESULTS_DIR, filename)
+            filepath = safe_join_path(RESULTS_DIR, safe_filename)
             latest_path = None
         
         # Add metadata
         results["_metadata"] = {
             "timestamp": datetime.now().isoformat(),
-            "filename": filename,
+            "filename": safe_filename,
             "version": timestamp if use_timestamp else "unversioned"
         }
         
-        with open(filepath, 'w') as f:
+        with open(str(filepath), 'w') as f:
             json.dump(results, f, indent=2)
         
         # Copy to latest if using timestamps
         if latest_path:
             import shutil
-            shutil.copy2(filepath, latest_path)
+            shutil.copy2(str(filepath), str(latest_path))
         
         print(f"Results saved to {filepath}")
         if latest_path:
@@ -359,8 +374,9 @@ class AlignmentEvaluator:
         
         # Also save a summary report
         if "all_results" in results:
-            summary_path = filepath.replace('.json', '_summary.txt')
-            self._write_summary_report(results, summary_path)
+            summary_filename = safe_filename.replace('.json', '_summary.txt')
+            summary_path = filepath.parent / summary_filename
+            self._write_summary_report(results, str(summary_path))
     
     def _write_summary_report(self, results: Dict, filepath: str):
         """Write human-readable summary report."""

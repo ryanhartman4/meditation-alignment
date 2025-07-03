@@ -32,10 +32,10 @@ def run_stage(stage_name, stage_func, required=True):
     try:
         result = stage_func()
         elapsed = time.time() - start_time
-        print(f"\n {stage_name} completed in {elapsed:.1f} seconds")
+        print(f"\n {stage_name} completed in {elapsed:.1f} seconds")
         return result
     except Exception as e:
-        print(f"\nL Error in {stage_name}: {e}")
+        print(f"\n Error in {stage_name}: {e}")
         if required:
             print("This is a required stage. Exiting...")
             sys.exit(1)
@@ -69,7 +69,7 @@ def check_prerequisites():
             print(f"L Error: Required file missing: {file}")
             return False
     
-    print(" All prerequisites met")
+    print("All prerequisites met")
     return True
 
 def run_alignment_sprint(skip_preference_generation=False, skip_rft=True):
@@ -137,25 +137,13 @@ def run_alignment_sprint(skip_preference_generation=False, skip_rft=True):
     except:
         print("Promptfoo not available, skipping...")
     
-    # Stage 5: Multi-turn Testing (Optional)
-    try:
-        print("\n" + "-"*60)
-        response = input("Run multi-turn consistency tests with Inspect AI? (y/n): ")
-        if response.lower() == 'y':
-            def stage5():
-                from inspect_eval import run_inspect_evaluation
-                results = run_inspect_evaluation()
-                sprint_results["stages"]["inspect"] = results
-                return results
-            
-            run_stage("Inspect AI Multi-Turn Testing", stage5, required=False)
-    except:
-        print("Inspect AI not available, skipping...")
+    # Stage 5: Multi-turn Testing (Removed - not needed)
+    # Inspect AI testing has been removed from the pipeline
     
     # Stage 6: O4-Mini RFT (Optional, expensive)
     if not skip_rft:
         print("\n" + "-"*60)
-        print("†  O4-Mini Reinforcement Fine-Tuning")
+        print("o4-Mini Reinforcement Fine-Tuning")
         print("This will:")
         print("  - Grade preference pairs using GPT-4")
         print("  - Prepare data for fine-tuning")
@@ -171,7 +159,7 @@ def run_alignment_sprint(skip_preference_generation=False, skip_rft=True):
                 sprint_results["stages"]["rft"] = results
                 return results
             
-            run_stage("O4-Mini Reinforcement Fine-Tuning", stage6, required=False)
+            run_stage("o4-Mini Reinforcement Fine-Tuning", stage6, required=False)
     
     # Final Summary
     sprint_results["end_time"] = datetime.now().isoformat()
@@ -194,16 +182,16 @@ def run_alignment_sprint(skip_preference_generation=False, skip_rft=True):
         print(f"Aligned Model Safety: {summary['aligned_safety']:.3f}")
         print(f"Safety Improvement: {summary['safety_improvement']:.1f}%")
         print(f"Red Team Pass Rate: {summary['red_team_pass_rate']:.1%}")
-        print(f"Production Ready: {' YES' if summary['ready_for_production'] else 'L NO'}")
+        print(f"Production Ready: {'‚úÖ YES' if summary['ready_for_production'] else '‚ùå NO'}")
     
     print(f"\nTotal Duration: {sprint_results['total_duration_minutes']:.1f} minutes")
     
-    print("\n=  View your results:")
+    print("\n View your results:")
     print(f"  - Interactive Dashboard: {dashboard_path}")
     print(f"  - Detailed Report: {report_path}")
     print(f"  - Sprint Summary: {sprint_results_path}")
     
-    print("\n<â Congratulations on completing the alignment sprint!")
+    print("\n<¬â Congratulations on completing the alignment sprint!")
     
     return sprint_results
 
@@ -235,14 +223,14 @@ def main():
     # Welcome message
     print_header("WELCOME TO THE MEDITATION AI ALIGNMENT SPRINT")
     print("This sprint will demonstrate:")
-    print("   Synthetic preference generation")
-    print("   Constitutional AI implementation")
-    print("   Comprehensive safety evaluation")
-    print("   Red-team testing")
-    print("   Interactive results dashboard")
+    print("Synthetic preference generation")
+    print("Constitutional AI implementation")
+    print("Comprehensive safety evaluation")
+    print("Red-team testing")
+    print("Interactive results dashboard")
     
     if args.include_rft:
-        print("   O4-Mini Reinforcement Fine-Tuning")
+        print("o4-Mini Reinforcement Fine-Tuning")
     
     print("\nEstimated time: 15-30 minutes (without RFT)")
     
