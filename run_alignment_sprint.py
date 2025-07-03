@@ -121,14 +121,13 @@ def run_alignment_sprint(skip_preference_generation=False, skip_rft=True, quick_
     
     # Stage 3: Create Dashboard
     def stage3():
-        dashboard_path, report_path = create_alignment_dashboard()
+        dashboard_path = create_alignment_dashboard()
         sprint_results["stages"]["dashboard"] = {
-            "dashboard_path": str(dashboard_path),
-            "report_path": str(report_path)
+            "dashboard_path": str(dashboard_path)
         }
-        return dashboard_path, report_path
+        return dashboard_path
     
-    dashboard_path, report_path = run_stage("Create Dashboard", stage3)
+    dashboard_path = run_stage("Create Dashboard", stage3)
     
     # Stage 4: Advanced Red-Teaming (Optional)
     try:
@@ -192,8 +191,7 @@ def run_alignment_sprint(skip_preference_generation=False, skip_rft=True, quick_
     print(f"\nTotal Duration: {sprint_results['total_duration_minutes']:.1f} minutes")
     
     print("\n View your results:")
-    print(f"  - Interactive Dashboard: {dashboard_path}")
-    print(f"  - Detailed Report: {report_path}")
+    print(f"  - Dashboard: {dashboard_path}")
     print(f"  - Sprint Summary: {sprint_results_path}")
     
     print("\n< Congratulations on completing the alignment sprint!")

@@ -233,27 +233,13 @@ def create_alignment_dashboard():
         "is_valid": is_valid
     }
     
-    # Create unified report with visualizations
-    report_path = safe_join_path(RESULTS_DIR, "alignment_report.html")
-    create_unified_report(results_data, report_path)
-    
-    print(f"Unified alignment report saved to: {report_path}")
-    
-    # Also create standalone dashboard for backward compatibility
-    fig = create_main_dashboard(results_data)
+    # Create single unified dashboard with all information
     dashboard_path = safe_join_path(RESULTS_DIR, "alignment_dashboard.html")
+    create_unified_report(results_data, dashboard_path)
     
-    try:
-        fig.write_html(
-            dashboard_path,
-            include_plotlyjs='cdn'
-        )
-        print(f"Standalone dashboard saved to: {dashboard_path}")
-    except Exception as e:
-        print(f"Error saving dashboard to {dashboard_path}: {e}")
-        raise
+    print(f"✨ Unified alignment dashboard saved to: {dashboard_path}")
     
-    return dashboard_path, report_path
+    return dashboard_path
 
 def load_all_results():
     """Load all result files from the results directory."""
@@ -296,18 +282,20 @@ def create_main_dashboard(data: dict):
         print("Warning: No data provided for dashboard creation")
         data = {}
     
-    # Define aesthetic color palette
+    # Define cyberpunk aesthetic color palette
     colors = {
-        'primary': '#6366F1',      # Indigo
-        'success': '#10B981',      # Emerald
-        'danger': '#EF4444',       # Red
-        'warning': '#F59E0B',      # Amber
-        'info': '#3B82F6',         # Blue
-        'secondary': '#8B5CF6',    # Purple
-        'neutral': '#6B7280',      # Gray
-        'background': '#F9FAFB',   # Light gray
-        'gradient_1': '#EC4899',   # Pink
-        'gradient_2': '#8B5CF6'    # Purple
+        'primary': '#00D9FF',      # Cyan
+        'success': '#00FF88',      # Neon green
+        'danger': '#FF0080',       # Hot pink
+        'warning': '#FFB800',      # Amber
+        'info': '#00A6FF',         # Electric blue
+        'secondary': '#BD00FF',    # Neon purple
+        'neutral': '#4A5568',      # Dark gray
+        'background': '#0A0E27',   # Deep dark blue
+        'gradient_1': '#FF006E',   # Neon pink
+        'gradient_2': '#00F5FF',   # Cyan
+        'surface': '#1A1F3A',      # Dark surface
+        'text': '#E0E6ED'          # Light text
     }
     
     # Create figure with subplots
@@ -348,11 +336,12 @@ def create_main_dashboard(data: dict):
                 y=safety_scores,
                 marker=dict(
                     color=[colors['danger'], colors['success']],
-                    line=dict(color='rgba(0,0,0,0.2)', width=2)
+                    line=dict(color=colors['primary'], width=2),
+                    pattern=dict(shape="|", size=4, solidity=0.2)
                 ),
                 text=[f"{s:.3f}" for s in safety_scores],
                 textposition="auto",
-                textfont=dict(size=14, color='white'),
+                textfont=dict(size=14, color='white', family='JetBrains Mono, monospace'),
                 name="Safety Score",
                 hovertemplate='<b>%{x}</b><br>Safety Score: %{y:.3f}<extra></extra>'
             ),
@@ -455,9 +444,9 @@ def create_main_dashboard(data: dict):
                 marker=dict(
                     color=colors['danger'],
                     size=12,
-                    symbol='circle',
-                    line=dict(width=2, color='white'),
-                    opacity=0.8
+                    symbol='hexagon',
+                    line=dict(width=2, color=colors['primary']),
+                    opacity=0.9
                 ),
                 hovertemplate='<b>Base Model</b><br>Safety: %{x:.3f}<br>Quality: %{y:.3f}<extra></extra>'
             ),
@@ -472,9 +461,9 @@ def create_main_dashboard(data: dict):
                 marker=dict(
                     color=colors['success'],
                     size=12,
-                    symbol='diamond',
-                    line=dict(width=2, color='white'),
-                    opacity=0.8
+                    symbol='hexagon',
+                    line=dict(width=2, color=colors['primary']),
+                    opacity=0.9
                 ),
                 hovertemplate='<b>Aligned Model</b><br>Safety: %{x:.3f}<br>Quality: %{y:.3f}<extra></extra>'
             ),
@@ -662,12 +651,24 @@ def create_main_dashboard(data: dict):
                 mode="gauge+number+delta",
                 value=overall_score,
                 gauge={
-                    'axis': {'range': [0, 100], 'tickwidth': 2, 'tickcolor': colors['neutral']},
-                    'bar': {'color': colors['primary'], 'thickness': 0.8},
+                    'axis': {
+                        'range': [0, 100], 
+                        'tickwidth': 2, 
+                        'tickcolor': colors['primary'],
+                        'tickfont': {'color': colors['primary'], 'family': 'JetBrains Mono, monospace'}
+                    },
+                    'bar': {
+                        'color': colors['primary'], 
+                        'thickness': 0.7,
+                        'line': {'color': colors['primary'], 'width': 2}
+                    },
+                    'bgcolor': colors['surface'],
+                    'borderwidth': 2,
+                    'bordercolor': colors['primary'],
                     'steps': [
-                        {'range': [0, 60], 'color': 'rgba(239, 68, 68, 0.2)'},
-                        {'range': [60, 80], 'color': 'rgba(245, 158, 11, 0.2)'},
-                        {'range': [80, 100], 'color': 'rgba(16, 185, 129, 0.2)'}
+                        {'range': [0, 60], 'color': 'rgba(255, 0, 128, 0.2)'},
+                        {'range': [60, 80], 'color': 'rgba(255, 184, 0, 0.2)'},
+                        {'range': [80, 100], 'color': 'rgba(0, 255, 136, 0.2)'}
                     ],
                     'threshold': {
                         'line': {'color': colors['secondary'], 'width': 4},
@@ -682,26 +683,26 @@ def create_main_dashboard(data: dict):
             row=3, col=3
         )
     
-    # Update layout with enhanced aesthetics
+    # Update layout with cyberpunk aesthetics
     fig.update_layout(
         title={
-            'text': "<b>Meditation AI Alignment Dashboard</b><br><sub>Comprehensive Safety & Quality Analysis</sub>",
+            'text': "<b>MEDITATION AI ALIGNMENT SYSTEM</b><br><sub>Neural Safety Analysis Dashboard v2.0</sub>",
             'x': 0.5,
             'xanchor': 'center',
-            'font': {'size': 28, 'family': 'Arial, sans-serif', 'color': '#1F2937'},
+            'font': {'size': 26, 'family': 'JetBrains Mono, monospace', 'color': colors['primary']},
             'y': 0.98
         },
         showlegend=False,
         height=1400,
         margin=dict(t=120, b=60, l=60, r=60),
         paper_bgcolor=colors['background'],
-        plot_bgcolor='white',
-        font=dict(family='Arial, sans-serif', size=12, color='#374151'),
+        plot_bgcolor=colors['surface'],
+        font=dict(family='JetBrains Mono, monospace', size=11, color=colors['text']),
         hoverlabel=dict(
-            bgcolor='white',
-            font_size=14,
-            font_family='Arial, sans-serif',
-            bordercolor='#E5E7EB'
+            bgcolor=colors['surface'],
+            font_size=12,
+            font_family='JetBrains Mono, monospace',
+            bordercolor=colors['primary']
         )
     )
     
@@ -729,39 +730,45 @@ def create_detailed_report(data: dict, output_path: str):
     <head>
         <title>Meditation AI Alignment Report</title>
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Orbitron:wght@400;700;900&display=swap');
             
             * {
                 box-sizing: border-box;
             }
             
             body { 
-                font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+                font-family: 'JetBrains Mono', monospace; 
                 margin: 0; 
                 padding: 40px 20px;
-                background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                background: linear-gradient(135deg, #0A0E27 0%, #1A1F3A 100%);
                 min-height: 100vh;
                 line-height: 1.6;
-                color: #1a202c;
+                color: #E0E6ED;
             }
             
             h1 { 
-                color: #1a202c; 
+                font-family: 'Orbitron', monospace;
+                color: #00D9FF; 
                 text-align: center;
                 font-size: 2.5rem;
-                font-weight: 700;
+                font-weight: 900;
                 margin-bottom: 0.5rem;
-                text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+                text-transform: uppercase;
+                letter-spacing: 3px;
+                text-shadow: 0 0 20px rgba(0, 217, 255, 0.8), 0 0 40px rgba(0, 217, 255, 0.4);
             }
             
             h2 { 
-                color: #2d3748; 
-                border-bottom: 3px solid #6366f1; 
+                font-family: 'Orbitron', monospace;
+                color: #00D9FF; 
+                border-bottom: 3px solid #00D9FF; 
                 padding-bottom: 12px;
                 font-size: 1.75rem;
-                font-weight: 600;
+                font-weight: 700;
                 margin-top: 2rem;
                 position: relative;
+                text-transform: uppercase;
+                text-shadow: 0 0 10px rgba(0, 217, 255, 0.6);
             }
             
             h2:after {
@@ -771,127 +778,147 @@ def create_detailed_report(data: dict, output_path: str):
                 left: 0;
                 width: 60px;
                 height: 3px;
-                background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+                background: linear-gradient(90deg, #00D9FF 0%, #BD00FF 100%);
+                box-shadow: 0 0 10px rgba(0, 217, 255, 0.8);
             }
             
             h3 { 
-                color: #4a5568;
+                color: #00F5FF;
                 font-size: 1.25rem;
                 font-weight: 600;
                 margin-top: 1.5rem;
+                text-shadow: 0 0 5px rgba(0, 245, 255, 0.5);
             }
             
             .section { 
-                background: rgba(255, 255, 255, 0.95);
-                backdrop-filter: blur(10px);
+                background: rgba(26, 31, 58, 0.8);
+                backdrop-filter: blur(20px);
                 padding: 30px; 
                 margin: 25px 0; 
                 border-radius: 16px; 
-                box-shadow: 0 4px 6px rgba(0,0,0,0.07), 0 10px 15px rgba(0,0,0,0.1);
-                transition: transform 0.2s ease, box-shadow 0.2s ease;
+                border: 1px solid rgba(0, 217, 255, 0.3);
+                box-shadow: 0 0 20px rgba(0, 217, 255, 0.2), inset 0 0 20px rgba(0, 217, 255, 0.05);
+                transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
             }
             
             .section:hover {
                 transform: translateY(-2px);
-                box-shadow: 0 8px 12px rgba(0,0,0,0.1), 0 16px 24px rgba(0,0,0,0.15);
+                box-shadow: 0 0 30px rgba(0, 217, 255, 0.4), inset 0 0 20px rgba(0, 217, 255, 0.1);
+                border-color: rgba(0, 217, 255, 0.6);
             }
             
             .metric { 
                 display: inline-block; 
                 margin: 15px 25px;
                 padding: 20px;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: linear-gradient(135deg, rgba(0, 217, 255, 0.1) 0%, rgba(189, 0, 255, 0.1) 100%);
+                border: 1px solid rgba(0, 217, 255, 0.5);
                 border-radius: 12px;
                 color: white;
                 text-align: center;
                 min-width: 150px;
-                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-                transition: transform 0.2s ease;
+                box-shadow: 0 0 20px rgba(0, 217, 255, 0.2), inset 0 0 20px rgba(0, 217, 255, 0.1);
+                transition: transform 0.2s ease, box-shadow 0.2s ease;
             }
             
             .metric:hover {
                 transform: translateY(-3px);
+                box-shadow: 0 0 30px rgba(0, 217, 255, 0.4), inset 0 0 25px rgba(0, 217, 255, 0.2);
             }
             
             .metric-value { 
                 font-size: 2.5rem; 
                 font-weight: 700; 
-                color: white;
+                color: #00D9FF;
                 margin-bottom: 5px;
                 display: block;
+                text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
             }
             
             .metric-label { 
-                color: rgba(255, 255, 255, 0.9);
+                color: #00F5FF;
                 font-size: 0.875rem;
                 font-weight: 500;
                 text-transform: uppercase;
-                letter-spacing: 0.05em;
+                letter-spacing: 0.1em;
+                text-shadow: 0 0 5px rgba(0, 245, 255, 0.5);
             }
             
             .improvement { 
-                color: #10b981; 
+                color: #00FF88; 
                 font-weight: 600;
+                text-shadow: 0 0 5px rgba(0, 255, 136, 0.5);
             }
             
             .regression { 
-                color: #ef4444;
+                color: #FF0080;
                 font-weight: 600;
+                text-shadow: 0 0 5px rgba(255, 0, 128, 0.5);
             }
             
             .warning { 
-                background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-                border-left: 4px solid #f59e0b;
+                background: rgba(255, 184, 0, 0.1);
+                border: 1px solid rgba(255, 184, 0, 0.5);
+                border-left: 4px solid #FFB800;
                 padding: 20px; 
                 border-radius: 8px; 
                 margin: 15px 0;
-                box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+                box-shadow: 0 0 15px rgba(255, 184, 0, 0.2);
+                color: #FFB800;
             }
             
             .success { 
-                background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-                border-left: 4px solid #10b981;
+                background: rgba(0, 255, 136, 0.1);
+                border: 1px solid rgba(0, 255, 136, 0.5);
+                border-left: 4px solid #00FF88;
                 padding: 20px; 
                 border-radius: 8px; 
                 margin: 15px 0;
-                box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+                box-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
+                color: #00FF88;
             }
             
             table { 
                 width: 100%; 
                 border-collapse: collapse; 
                 margin: 25px 0;
-                background: white;
+                background: rgba(26, 31, 58, 0.6);
                 border-radius: 8px;
                 overflow: hidden;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                border: 1px solid rgba(0, 217, 255, 0.2);
+                box-shadow: 0 0 10px rgba(0, 217, 255, 0.1);
             }
             
             th, td { 
                 padding: 16px; 
                 text-align: left; 
-                border-bottom: 1px solid #e5e7eb;
+                border-bottom: 1px solid rgba(0, 217, 255, 0.1);
+                color: #E0E6ED;
             }
             
             th { 
-                background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+                background: linear-gradient(135deg, rgba(0, 217, 255, 0.1) 0%, rgba(189, 0, 255, 0.1) 100%);
                 font-weight: 600;
-                color: #374151;
+                color: #00D9FF;
                 text-transform: uppercase;
                 font-size: 0.875rem;
-                letter-spacing: 0.05em;
+                letter-spacing: 0.1em;
+                text-shadow: 0 0 5px rgba(0, 217, 255, 0.5);
             }
             
             tr:hover {
-                background-color: #f9fafb;
+                background-color: rgba(0, 217, 255, 0.05);
             }
             
             .timestamp { 
                 text-align: center; 
-                color: #6b7280; 
-                font-style: italic;
+                color: #00A6FF; 
+                font-style: normal;
                 font-size: 0.875rem;
                 margin-bottom: 2rem;
+                text-transform: uppercase;
+                letter-spacing: 0.2em;
+                text-shadow: 0 0 5px rgba(0, 166, 255, 0.5);
             }
             
             /* Animation for metric values */
@@ -907,11 +934,12 @@ def create_detailed_report(data: dict, output_path: str):
             
             /* Gradient text effect */
             .gradient-text {
-                background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+                background: linear-gradient(90deg, #00D9FF 0%, #BD00FF 100%);
                 -webkit-background-clip: text;
                 -webkit-text-fill-color: transparent;
                 background-clip: text;
                 font-weight: 700;
+                filter: drop-shadow(0 0 10px rgba(0, 217, 255, 0.5));
             }
             
             /* Custom scrollbar */
@@ -925,20 +953,22 @@ def create_detailed_report(data: dict, output_path: str):
             }
             
             ::-webkit-scrollbar-thumb {
-                background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+                background: linear-gradient(135deg, #00D9FF 0%, #BD00FF 100%);
                 border-radius: 10px;
+                box-shadow: 0 0 5px rgba(0, 217, 255, 0.5);
             }
             
             ::-webkit-scrollbar-thumb:hover {
-                background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+                background: linear-gradient(135deg, #00A6FF 0%, #9D00FF 100%);
+                box-shadow: 0 0 10px rgba(0, 217, 255, 0.8);
             }
         </style>
     </head>
     <body>
-        <h1>Meditation AI Alignment Report</h1>
+        <h1>MEDITATION AI ALIGNMENT REPORT</h1>
         <p class="timestamp">Generated: """ + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + """</p>
         <div style="text-align: center; margin-bottom: 30px;">
-            <span class="gradient-text" style="font-size: 1.25rem;">Comprehensive Safety & Quality Analysis</span>
+            <span class="gradient-text" style="font-size: 1.25rem; text-transform: uppercase; letter-spacing: 0.2em;">Neural Safety & Quality Analysis</span>
         </div>
     """
     
@@ -1254,108 +1284,136 @@ def create_unified_report(data: dict, output_path: str):
                 background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
             }
             h3 { 
-                color: #4a5568;
+                color: #00F5FF;
                 font-size: 1.25rem;
                 font-weight: 600;
                 margin-top: 1.5rem;
+                text-shadow: 0 0 5px rgba(0, 245, 255, 0.5);
             }
             .section { 
-                background: rgba(255, 255, 255, 0.95);
-                backdrop-filter: blur(10px);
+                background: rgba(26, 31, 58, 0.8);
+                backdrop-filter: blur(20px);
                 padding: 35px; 
                 margin: 25px 0; 
                 border-radius: 16px; 
-                box-shadow: 0 4px 6px rgba(0,0,0,0.07), 0 10px 15px rgba(0,0,0,0.1);
-                transition: transform 0.2s ease, box-shadow 0.2s ease;
+                border: 1px solid rgba(0, 217, 255, 0.3);
+                box-shadow: 0 0 20px rgba(0, 217, 255, 0.2), inset 0 0 20px rgba(0, 217, 255, 0.05);
+                transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
             }
             .section:hover {
                 transform: translateY(-2px);
-                box-shadow: 0 8px 12px rgba(0,0,0,0.1), 0 16px 24px rgba(0,0,0,0.15);
+                box-shadow: 0 0 30px rgba(0, 217, 255, 0.4), inset 0 0 20px rgba(0, 217, 255, 0.1);
+                border-color: rgba(0, 217, 255, 0.6);
             }
             .metric { 
                 display: inline-block; 
                 margin: 15px 25px;
                 padding: 20px;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: linear-gradient(135deg, rgba(0, 217, 255, 0.1) 0%, rgba(189, 0, 255, 0.1) 100%);
+                border: 1px solid rgba(0, 217, 255, 0.5);
                 border-radius: 12px;
                 color: white;
                 text-align: center;
                 min-width: 180px;
-                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-                transition: transform 0.2s ease;
+                box-shadow: 0 0 20px rgba(0, 217, 255, 0.2), inset 0 0 20px rgba(0, 217, 255, 0.1);
+                transition: transform 0.2s ease, box-shadow 0.2s ease;
             }
             .metric:hover {
                 transform: translateY(-3px);
+                box-shadow: 0 0 30px rgba(0, 217, 255, 0.4), inset 0 0 25px rgba(0, 217, 255, 0.2);
             }
             .metric-value { 
                 font-size: 2.75rem; 
                 font-weight: 700; 
-                color: white;
+                color: #00D9FF;
                 margin-bottom: 5px;
                 display: block;
                 animation: pulse 2s infinite;
+                text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
             }
             .metric-label { 
-                color: rgba(255, 255, 255, 0.9);
+                color: #00F5FF;
                 font-size: 0.875rem;
                 font-weight: 500;
                 text-transform: uppercase;
-                letter-spacing: 0.05em;
+                letter-spacing: 0.1em;
+                text-shadow: 0 0 5px rgba(0, 245, 255, 0.5);
             }
-            .improvement { color: #10b981; font-weight: 600; }
-            .regression { color: #ef4444; font-weight: 600; }
+            .improvement { color: #00FF88; font-weight: 600; text-shadow: 0 0 5px rgba(0, 255, 136, 0.5); }
+            .regression { color: #FF0080; font-weight: 600; text-shadow: 0 0 5px rgba(255, 0, 128, 0.5); }
             .warning { 
-                background-color: #fff3cd; 
+                background-color: rgba(255, 184, 0, 0.1); 
                 padding: 15px; 
                 border-radius: 4px; 
                 margin: 10px 0; 
-                border-left: 4px solid #ffa502;
+                border: 1px solid rgba(255, 184, 0, 0.5);
+                border-left: 4px solid #FFB800;
+                box-shadow: 0 0 10px rgba(255, 184, 0, 0.2);
+                color: #FFB800;
             }
             .success { 
-                background-color: #d4edda; 
+                background-color: rgba(0, 255, 136, 0.1); 
                 padding: 15px; 
                 border-radius: 4px; 
                 margin: 10px 0; 
-                border-left: 4px solid #51cf66;
+                border: 1px solid rgba(0, 255, 136, 0.5);
+                border-left: 4px solid #00FF88;
+                box-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
+                color: #00FF88;
             }
             .error {
-                background-color: #f8d7da;
+                background-color: rgba(255, 0, 128, 0.1);
                 padding: 15px;
                 border-radius: 4px;
                 margin: 10px 0;
-                border-left: 4px solid #ff6b6b;
+                border: 1px solid rgba(255, 0, 128, 0.5);
+                border-left: 4px solid #FF0080;
+                box-shadow: 0 0 10px rgba(255, 0, 128, 0.2);
+                color: #FF0080;
             }
             table { 
                 width: 100%; 
                 border-collapse: collapse; 
                 margin: 20px 0; 
+                border: 1px solid rgba(0, 217, 255, 0.2);
+                background: rgba(26, 31, 58, 0.4);
             }
             th, td { 
                 padding: 12px; 
                 text-align: left; 
-                border-bottom: 1px solid #ddd; 
+                border-bottom: 1px solid rgba(0, 217, 255, 0.1); 
+                color: #E0E6ED;
             }
             th { 
-                background-color: #f8f9fa; 
+                background: linear-gradient(135deg, rgba(0, 217, 255, 0.1) 0%, rgba(189, 0, 255, 0.1) 100%); 
                 font-weight: bold; 
+                color: #00D9FF;
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                text-shadow: 0 0 5px rgba(0, 217, 255, 0.5);
             }
             tr:hover {
-                background-color: #f5f5f5;
+                background-color: rgba(0, 217, 255, 0.05);
             }
             .timestamp { 
                 text-align: center; 
-                color: #666; 
-                font-style: italic; 
+                color: #00A6FF; 
+                font-style: normal; 
                 margin-bottom: 30px;
+                text-transform: uppercase;
+                letter-spacing: 0.2em;
+                text-shadow: 0 0 5px rgba(0, 166, 255, 0.5);
             }
             .nav {
                 position: sticky;
                 top: 0;
-                background-color: white;
+                background-color: rgba(26, 31, 58, 0.95);
+                backdrop-filter: blur(10px);
                 z-index: 100;
                 padding: 15px 0;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                box-shadow: 0 0 20px rgba(0, 217, 255, 0.3);
                 margin: -20px -20px 20px -20px;
+                border-bottom: 1px solid rgba(0, 217, 255, 0.3);
             }
             .nav ul {
                 list-style: none;
@@ -1369,15 +1427,18 @@ def create_unified_report(data: dict, output_path: str):
                 margin: 0 15px;
             }
             .nav a {
-                color: #3742fa;
+                color: #00D9FF;
                 text-decoration: none;
                 font-weight: 500;
                 padding: 5px 10px;
                 border-radius: 4px;
-                transition: background-color 0.3s;
+                transition: all 0.3s;
+                text-shadow: 0 0 5px rgba(0, 217, 255, 0.3);
             }
             .nav a:hover {
-                background-color: #f0f0f0;
+                background-color: rgba(0, 217, 255, 0.1);
+                text-shadow: 0 0 10px rgba(0, 217, 255, 0.8);
+                box-shadow: 0 0 10px rgba(0, 217, 255, 0.3);
             }
             #dashboard-viz {
                 margin: 20px 0;
@@ -1391,12 +1452,14 @@ def create_unified_report(data: dict, output_path: str):
                 text-transform: uppercase;
             }
             .status-passed {
-                background-color: #d4edda;
-                color: #155724;
+                background-color: rgba(0, 255, 136, 0.2);
+                color: #00FF88;
+                box-shadow: 0 0 5px rgba(0, 255, 136, 0.3);
             }
             .status-failed {
-                background-color: #f8d7da;
-                color: #721c24;
+                background-color: rgba(255, 0, 128, 0.2);
+                color: #FF0080;
+                box-shadow: 0 0 5px rgba(255, 0, 128, 0.3);
             }
             
             /* Mobile Responsiveness */
@@ -1461,8 +1524,8 @@ def create_unified_report(data: dict, output_path: str):
     </head>
     <body>
         <div class="container">
-            <h1>Meditation AI Alignment Report</h1>
-            <p class="timestamp">Generated: """ + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + """</p>
+            <h1>MEDITATION AI ALIGNMENT REPORT</h1>
+            <p class="timestamp">SYSTEM GENERATED: """ + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + """</p>
             
             <!-- Navigation -->
             <nav class="nav">
@@ -1879,10 +1942,8 @@ def create_unified_report(data: dict, output_path: str):
 
 if __name__ == "__main__":
     # Create dashboard
-    dashboard_path, report_path = create_alignment_dashboard()
+    dashboard_path = create_alignment_dashboard()
     
-    print("\nDashboard creation complete!")
-    print(f"\nView your results:")
-    print(f"  - Interactive Dashboard: {dashboard_path}")
-    print(f"  - Detailed Report: {report_path}")
-    print("\nTo view, open the HTML files in your web browser.")
+    print("\n✅ Dashboard creation complete!")
+    print(f"\n🌐 View your results at: {dashboard_path}")
+    print("\nTo view, open the HTML file in your web browser.")
