@@ -75,15 +75,21 @@ Generate exactly {n} preference pairs as a JSON object with this structure:
   ]
 }}
 
-Each meditation should be 150-300 words to match production quality.
-Make violations subtle but safety-critical - the kind that alignment systems must catch."""
+CRITICAL: Each meditation text must be a single-line string with proper JSON escaping.
+- Use spaces instead of newlines within the meditation text
+- Keep each meditation as one continuous paragraph
+- Each meditation should be 150-300 words
+- Make violations subtle but safety-critical"""
     
     # Estimate tokens to check if within limits
     prompt_tokens = estimate_tokens(prompt)
-    expected_output_tokens = n * 300  # ~300 tokens per pair
+    expected_output_tokens = n * 600  # ~600 tokens per pair to ensure complete responses
     
     if prompt_tokens + expected_output_tokens > MAX_TOKENS_PER_BATCH:
         print(f"Warning: Batch size {n} may exceed token limits. Consider reducing.")
+        print(f"  Estimated prompt tokens: {prompt_tokens}")
+        print(f"  Expected output tokens: {expected_output_tokens}")
+        print(f"  Total: {prompt_tokens + expected_output_tokens} > {MAX_TOKENS_PER_BATCH} limit")
     
     # Pre-check cost before making the call
     system_msg = """You are an expert AI safety researcher specializing in meditation and mental health content generation. Your task is to create high-quality training data for AI alignment systems.
@@ -108,23 +114,76 @@ OUTPUT REQUIREMENTS:
 - Ensure each preference pair clearly demonstrates the safety distinction
 - Include specific, actionable explanations for each violation type
 
+JSON FORMATTING RULES:
+- MUST properly escape all special characters in strings
+- Use \\n for newlines, \\" for quotes, \\\\ for backslashes
+- Keep all string values on a single line (no raw line breaks)
+- Ensure valid JSON that can be parsed without errors
+
 Remember: This training data directly impacts AI safety systems that protect vulnerable users seeking meditation guidance."""
     prompt_tokens = estimate_tokens(system_msg + prompt)
     check_cost_before_call(CRITIC_MODEL, prompt_tokens, expected_output_tokens)
     
     # Use exponential backoff retry for API call
     try:
-        response = make_api_call_with_retry(
-            client=client,
-            model=CRITIC_MODEL,
-            messages=[
-                {"role": "system", "content": system_msg},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.8,
-            max_tokens=min(MAX_TOKENS_PER_BATCH, expected_output_tokens),
-            response_format={"type": "json_object"}
-        )
+        # Try structured output first (requires newer models)
+        try:
+            response = make_api_call_with_retry(
+                client=client,
+                model=CRITIC_MODEL,
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.8,
+                max_tokens=max(2000, expected_output_tokens),  # Minimum 2000 tokens to avoid cutoff
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "preference_batch",
+                        "strict": True,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "preferences": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "chosen": {"type": "string"},
+                                            "rejected": {"type": "string"},
+                                            "violation_type": {
+                                                "type": "string",
+                                                "enum": ["medical_advice", "crisis_content", "non_inclusive", 
+                                                       "boundary_violation", "triggering", "false_promises"]
+                                            },
+                                            "explanation": {"type": "string"}
+                                        },
+                                        "required": ["chosen", "rejected", "violation_type", "explanation"],
+                                        "additionalProperties": False
+                                    }
+                                }
+                            },
+                            "required": ["preferences"],
+                            "additionalProperties": False
+                        }
+                    }
+                }
+            )
+        except Exception as e:
+            # Fallback to basic JSON mode if structured output fails
+            print(f"Structured output failed, falling back to json_object mode: {e}")
+            response = make_api_call_with_retry(
+                client=client,
+                model=CRITIC_MODEL,
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.8,
+                max_tokens=max(2000, expected_output_tokens),  # Minimum 2000 tokens to avoid cutoff
+                response_format={"type": "json_object"}
+            )
         
         # Track costs and enforce limit
         usage = response.usage
@@ -155,16 +214,36 @@ Remember: This training data directly impacts AI safety systems that protect vul
             
         except json.JSONDecodeError as e:
             print(f"JSON parsing error: {e}")
+            print(f"Raw content length: {len(content)} characters")
+            
+            # Try to show where the error occurred
+            if hasattr(e, 'pos'):
+                start = max(0, e.pos - 100)
+                end = min(len(content), e.pos + 100)
+                print(f"Content around error position {e.pos}:")
+                print(f"...{content[start:end]}...")
+            
+            # Save problematic response for debugging
+            debug_file = f"debug_json_error_{topic.replace(' ', '_')}_{time.time()}.txt"
+            with open(debug_file, 'w') as f:
+                f.write(content)
+            print(f"Saved problematic response to {debug_file}")
+            
             return []
             
     except Exception as e:
         print(f"Error generating batch for {topic}: {e}")
         return []
 
-def generate_all_preferences():
-    """Generate preference dataset for multiple topics."""
+def generate_all_preferences(test_mode=False):
+    """Generate preference dataset for multiple topics.
     
-    topics = [
+    Args:
+        test_mode: If True, generates only 1 pair per topic for testing
+    """
+    
+    # Full topic list
+    all_topics = [
         # Core mental health conditions
         "anxiety relief",
         "depression support", 
@@ -234,18 +313,34 @@ def generate_all_preferences():
         "panic disorder"
     ]
     
+    # In test mode, use only 5 representative topics
+    if test_mode:
+        topics = [
+            "anxiety relief",         # Common use case
+            "suicidal ideation",      # Critical safety test
+            "chronic pain",           # Medical boundary test
+            "teen meditation",        # Vulnerable population test
+            "spiritual awakening"     # Non-medical wellness test
+        ]
+    else:
+        topics = all_topics
+    
     all_preferences = []
     
-    # Cost estimation
-    total_pairs_needed = len(topics) * PREFERENCE_PAIRS_PER_TOPIC
-    estimated_tokens = total_pairs_needed * 1000  # ~1000 tokens per pair
-    estimated_cost = (estimated_tokens / 1000) * TOKEN_PRICING[CRITIC_MODEL]["output"]
+    # Adjust pairs per topic for test mode
+    pairs_per_topic = 1 if test_mode else PREFERENCE_PAIRS_PER_TOPIC
     
-    print(f"Generating synthetic preference dataset...")
+    # Cost estimation
+    total_pairs_needed = len(topics) * pairs_per_topic
+    estimated_tokens = total_pairs_needed * 2000  # ~2000 tokens per pair 
+    estimated_cost = (estimated_tokens / 2000) * TOKEN_PRICING[CRITIC_MODEL]["output"]
+    
+    mode_str = "TEST MODE - " if test_mode else ""
+    print(f"{mode_str}Generating synthetic preference dataset...")
     print(f"  Topics: {len(topics)}")
-    print(f"  Pairs per topic: {PREFERENCE_PAIRS_PER_TOPIC}")
+    print(f"  Pairs per topic: {pairs_per_topic}")
     print(f"  Total pairs: {total_pairs_needed}")
-    print(f"  Batch size: {PREFERENCE_BATCH_SIZE}")
+    print(f"  Batch size: {min(PREFERENCE_BATCH_SIZE, pairs_per_topic)}")
     print(f"  Estimated cost: ${estimated_cost:.2f}")
     
     if estimated_cost > MAX_API_COST_USD:
@@ -257,11 +352,11 @@ def generate_all_preferences():
     for topic in tqdm(topics, desc="Topics"):
         # Generate in smaller batches for better quality
         topic_preferences = []
-        batches_needed = (PREFERENCE_PAIRS_PER_TOPIC + PREFERENCE_BATCH_SIZE - 1) // PREFERENCE_BATCH_SIZE
+        batches_needed = (pairs_per_topic + PREFERENCE_BATCH_SIZE - 1) // PREFERENCE_BATCH_SIZE
         
         for i in range(batches_needed):
             # Calculate how many to generate in this batch
-            remaining = PREFERENCE_PAIRS_PER_TOPIC - len(topic_preferences)
+            remaining = pairs_per_topic - len(topic_preferences)
             batch_size = min(PREFERENCE_BATCH_SIZE, remaining)
             
             if batch_size <= 0:
@@ -275,7 +370,7 @@ def generate_all_preferences():
                 if pref and all(key in pref for key in ["chosen", "rejected", "violation_type", "explanation"]):
                     # Validate content length
                     if len(pref["chosen"]) < 50 or len(pref["rejected"]) < 50:
-                        print(f"    Warning: Skipping preference with too short content")
+                        print(f" Warning: Skipping preference with too short content")
                         continue
                         
                     topic_preferences.append({
@@ -286,12 +381,12 @@ def generate_all_preferences():
                         "model": CRITIC_MODEL
                     })
             
-            # Rate limiting
-            if i < batches_needed - 1:
-                time.sleep(1)  # Avoid rate limits
+            # Rate limiting - only in non-test mode
+            if i < batches_needed - 1 and not test_mode:
+                time.sleep(0.1)  # Minimal delay to avoid rate limits
         
         all_preferences.extend(topic_preferences)
-        print(f"  Generated {len(topic_preferences)} preferences for {topic} (target: {PREFERENCE_PAIRS_PER_TOPIC})")
+        print(f"  Generated {len(topic_preferences)} preferences for {topic} (target: {pairs_per_topic})")
     
     # Save to JSONL file
     output_path = os.path.join(DATA_DIR, "preferences_synthetic.jsonl")
@@ -358,12 +453,38 @@ def validate_preferences(preferences):
     
     return issues
 
+def generate_preferences(n_pairs=None, test_mode=False):
+    """Public API for generating preferences with custom pair count.
+    
+    Args:
+        n_pairs: Number of pairs to generate per topic (overrides config)
+        test_mode: If True, generates only 1 pair per topic
+    """
+    if test_mode:
+        return generate_all_preferences(test_mode=True)
+    elif n_pairs is not None:
+        # Temporarily override the config
+        global PREFERENCE_PAIRS_PER_TOPIC
+        original = PREFERENCE_PAIRS_PER_TOPIC
+        PREFERENCE_PAIRS_PER_TOPIC = n_pairs
+        try:
+            return generate_all_preferences(test_mode=False)
+        finally:
+            PREFERENCE_PAIRS_PER_TOPIC = original
+    else:
+        return generate_all_preferences(test_mode=False)
+
 if __name__ == "__main__":
+    import sys
+    
+    # Check for test mode flag
+    test_mode = "--test" in sys.argv or "-t" in sys.argv
+    
     # Ensure data directory exists
     os.makedirs(DATA_DIR, exist_ok=True)
     
     # Generate preferences
-    preferences = generate_all_preferences()
+    preferences = generate_all_preferences(test_mode=test_mode)
     
     # Validate
     print("\nValidating preferences...")

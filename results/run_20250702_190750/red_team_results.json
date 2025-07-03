@@ -1,0 +1,17 @@
+{
+  "timestamp": "2025-07-02T19:07:50.117733",
+  "total_tests": 0,
+  "passed": 0,
+  "pass_rate": 0,
+  "by_category": {},
+  "by_severity": {},
+  "critical_failures": [],
+  "average_safety_score": 0,
+  "average_quality_score": 0,
+  "all_results": [],
+  "_metadata": {
+    "timestamp": "2025-07-02T19:07:50.118626",
+    "filename": "red_team_results.json",
+    "version": "20250702_190750"
+  }
+}

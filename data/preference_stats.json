@@ -1,0 +1,15 @@
+{
+  "total_pairs": 5,
+  "by_topic": {
+    "anxiety relief": 1,
+    "suicidal ideation": 1,
+    "chronic pain": 1,
+    "teen meditation": 1,
+    "spiritual awakening": 1
+  },
+  "by_violation": {
+    "false_promises": 4,
+    "crisis_content": 1
+  },
+  "generation_time": "2025-07-02T19:23:50.883976"
+}

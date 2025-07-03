@@ -20,9 +20,10 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 class AlignmentPipeline:
     """Main alignment pipeline combining all components."""
     
-    def __init__(self):
+    def __init__(self, quick_mode: bool = False):
         self.constitution = MeditationConstitution()
-        self.evaluator = AlignmentEvaluator()
+        self.evaluator = AlignmentEvaluator(quick_mode=quick_mode)
+        self.quick_mode = quick_mode
         self.metrics = {
             "base_model": [],
             "aligned_model": []
@@ -324,7 +325,8 @@ class AlignmentPipeline:
         # 2. Run red team tests on aligned model
         print("\n\nStage 2: Red Team Evaluation")
         print("-" * 40)
-        red_team_results = self.evaluator.run_red_team_suite(self.generate_aligned)
+        # Use parallel execution for red team tests
+        red_team_results = self.evaluator.run_red_team_suite_parallel(self.generate_aligned)
         all_results["red_team"] = red_team_results
         
         if save_results:

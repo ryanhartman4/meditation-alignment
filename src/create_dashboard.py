@@ -64,7 +64,6 @@ def create_alignment_dashboard():
     dashboard_path = os.path.join(RESULTS_DIR, "alignment_dashboard.html")
     fig.write_html(
         dashboard_path,
-        title="Meditation AI Alignment Dashboard",
         include_plotlyjs='cdn'
     )
     

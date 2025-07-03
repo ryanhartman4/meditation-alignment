@@ -72,11 +72,16 @@ def check_prerequisites():
     print("All prerequisites met")
     return True
 
-def run_alignment_sprint(skip_preference_generation=False, skip_rft=True):
+def run_alignment_sprint(skip_preference_generation=False, skip_rft=True, quick_mode=False):
     """Run the complete alignment sprint."""
     
-    print_header("ONE-NIGHT MEDITATION AI ALIGNMENT SPRINT")
+    header_title = "ONE-NIGHT MEDITATION AI ALIGNMENT SPRINT"
+    if quick_mode:
+        header_title += " (QUICK MODE)"
+    print_header(header_title)
     print("Starting at:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    if quick_mode:
+        print("Quick mode enabled - generating only 1 preference pair per topic")
     
     # Check prerequisites
     if not check_prerequisites():
@@ -91,25 +96,28 @@ def run_alignment_sprint(skip_preference_generation=False, skip_rft=True):
     # Stage 1: Generate Preferences (if needed)
     if not skip_preference_generation:
         def stage1():
-            preferences = generate_all_preferences()
+            # Use test mode if quick mode is enabled
+            preferences = generate_all_preferences(test_mode=quick_mode)
             sprint_results["stages"]["preference_generation"] = {
                 "total_pairs": len(preferences),
-                "topics": len(set(p["topic"] for p in preferences))
+                "topics": len(set(p["topic"] for p in preferences)),
+                "test_mode": quick_mode
             }
             return preferences
         
-        run_stage("Generate Synthetic Preferences", stage1)
+        stage_name = "Generate Synthetic Preferences (TEST MODE)" if quick_mode else "Generate Synthetic Preferences"
+        run_stage(stage_name, stage1)
     else:
         print("\nSkipping preference generation (using existing data)")
     
     # Stage 2: Run Alignment Pipeline
     def stage2():
-        pipeline = AlignmentPipeline()
+        pipeline = AlignmentPipeline(quick_mode=quick_mode)
         results = pipeline.run_full_evaluation()
         sprint_results["stages"]["alignment"] = results["overall_summary"]
         return results
     
-    alignment_results = run_stage("Core Alignment Evaluation", stage2)
+    run_stage("Core Alignment Evaluation", stage2)
     
     # Stage 3: Create Dashboard
     def stage3():
@@ -137,15 +145,12 @@ def run_alignment_sprint(skip_preference_generation=False, skip_rft=True):
     except:
         print("Promptfoo not available, skipping...")
     
-    # Stage 5: Multi-turn Testing (Removed - not needed)
-    # Inspect AI testing has been removed from the pipeline
-    
-    # Stage 6: O4-Mini RFT (Optional, expensive)
+    # Stage 5: O4-Mini RFT (Optional, expensive)
     if not skip_rft:
         print("\n" + "-"*60)
         print("o4-Mini Reinforcement Fine-Tuning")
         print("This will:")
-        print("  - Grade preference pairs using GPT-4")
+        print("  - Grade preference pairs using GPT-4o")
         print("  - Prepare data for fine-tuning")
         print("  - Start a fine-tuning job (takes 1-2 hours)")
         print("  - Cost approximately $25-50")
@@ -210,7 +215,7 @@ def main():
     parser.add_argument(
         "--include-rft",
         action="store_true",
-        help="Include O4-Mini RFT (expensive, ~$25-50)"
+        help="Include o4-Mini RFT (expensive, ~$25-50)"
     )
     parser.add_argument(
         "--quick",
@@ -243,7 +248,8 @@ def main():
     # Run the sprint
     results = run_alignment_sprint(
         skip_preference_generation=args.skip_preferences,
-        skip_rft=not args.include_rft
+        skip_rft=not args.include_rft,
+        quick_mode=args.quick
     )
     
     # Offer to open dashboard

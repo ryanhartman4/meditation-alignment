@@ -10,8 +10,8 @@ from openai import OpenAI, APIError, RateLimitError, APITimeoutError
 def exponential_backoff_retry(
     func: Callable,
     max_retries: int = 3,
-    initial_delay: float = 1.0,
-    max_delay: float = 60.0,
+    initial_delay: float = 0.5,  # Reduced from 1.0
+    max_delay: float = 30.0,     # Reduced from 60.0
     exponential_base: float = 2.0,
     jitter: bool = True
 ) -> Any:
@@ -44,8 +44,12 @@ def exponential_backoff_retry(
                 print(f"Max retries ({max_retries}) exceeded. Final error: {e}")
                 raise
             
-            # Calculate delay with exponential backoff
-            delay = min(initial_delay * (exponential_base ** attempt), max_delay)
+            # For rate limits on first attempt, use shorter delay
+            if isinstance(e, RateLimitError) and attempt == 0:
+                delay = 0.2  # Quick first retry for rate limits
+            else:
+                # Calculate delay with exponential backoff
+                delay = min(initial_delay * (exponential_base ** attempt), max_delay)
             
             # Add jitter to prevent thundering herd
             if jitter:
