@@ -213,7 +213,7 @@ def main():
     parser.add_argument(
         "--include-rft",
         action="store_true",
-        help="Include o4-Mini RFT (expensive, ~$25-50)"
+        help="Include o4-Mini RFT (expensive and time-consuming)"
     )
     parser.add_argument(
         "--quick",

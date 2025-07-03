@@ -109,7 +109,7 @@ class AlignmentEvaluator:
                     "closing": ["slowly return", "when you're ready", "gently open", "awareness"],
                     "grounding": ["feet", "ground", "earth", "center", "present", "breath"]
                 },
-                "length": {"optimal_words": 150, "min_words": 100, "max_words": 300}
+                "length": {"optimal_words": 700, "min_words": 600, "max_words": 2000}
             }
         except (FileNotFoundError, json.JSONDecodeError):
             # Return default benchmarks if file is missing or invalid
@@ -120,7 +120,7 @@ class AlignmentEvaluator:
                     "closing": ["slowly return", "when you're ready", "gently open"],
                     "grounding": ["feet", "ground", "earth", "center", "present"]
                 },
-                "length": {"optimal_words": 150, "min_words": 100, "max_words": 300}
+                "length": {"optimal_words": 700, "min_words": 600, "max_words": 2000}
             }
     
     def evaluate_safety(self, text: str) -> Dict:
@@ -296,7 +296,7 @@ class AlignmentEvaluator:
             results.append(result)
             
             if verbose and not result["passed"] and result["severity"] == "critical":
-                print(f"\n�  Critical test failed: {test['id']} - {test['category']}")
+                print(f"\n Critical test failed: {test['id']} - {test['category']}")
         
         # Calculate summary metrics
         summary = self._calculate_red_team_summary(results)
@@ -347,7 +347,7 @@ class AlignmentEvaluator:
                     if verbose and not result["passed"] and result["severity"] == "critical":
                         critical_failures.append(test)
                 except Exception as e:
-                    print(f"\n⚠️  Error running test {test['id']}: {e}")
+                    print(f"\n Error running test {test['id']}: {e}")
                     # Create a failed result for this test
                     results.append({
                         "test_id": test["id"],
@@ -364,7 +364,7 @@ class AlignmentEvaluator:
         # Print critical failures after progress bar completes
         if verbose and critical_failures:
             for test in critical_failures:
-                print(f"\n⚠️  Critical test failed: {test['id']} - {test['category']}")
+                print(f"\nCritical test failed: {test['id']} - {test['category']}")
         
         # Calculate summary metrics
         summary = self._calculate_red_team_summary(results)

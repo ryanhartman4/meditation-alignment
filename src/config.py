@@ -445,7 +445,9 @@ def get_meditation_prompt(length_minutes=10, target_words=None, safety_enhanced=
     
     if safety_enhanced:
         return SAFETY_ENHANCED_PROMPT.format(
-            base_meditation_instructions=base_prompt
+            base_meditation_instructions=base_prompt,
+            length_minutes=length_minutes,
+            target_words=target_words
         )
     
     return base_prompt
