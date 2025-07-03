@@ -11,7 +11,7 @@ from pathlib import Path
 def create_env_file():
     """Create a .env file with user's API key."""
     
-    print("🔧 Meditation AI Alignment Sprint - Configuration Setup")
+    print(" Meditation AI Alignment Sprint - Configuration Setup")
     print("=" * 60)
     print()
     print("This script will help you set up your OpenAI API key securely.")
@@ -21,7 +21,7 @@ def create_env_file():
     # Check if .env already exists
     env_path = Path(".env")
     if env_path.exists():
-        overwrite = input("⚠️  A .env file already exists. Overwrite it? (y/n): ").lower().strip()
+        overwrite = input(" A .env file already exists. Overwrite it? (y/n): ").lower().strip()
         if overwrite != 'y':
             print("Setup cancelled.")
             return False
@@ -39,12 +39,12 @@ def create_env_file():
         api_key = input("OpenAI API Key: ").strip()
     
     if not api_key:
-        print("❌ No API key provided. Setup cancelled.")
+        print("  No API key provided. Setup cancelled.")
         return False
     
     # Validate API key format (basic check)
     if not api_key.startswith('sk-'):
-        print("⚠️  Warning: This doesn't look like a valid OpenAI API key.")
+        print("   Warning: This doesn't look like a valid OpenAI API key.")
         print("   OpenAI API keys typically start with 'sk-'")
         proceed = input("   Proceed anyway? (y/n): ").lower().strip()
         if proceed != 'y':
@@ -76,15 +76,15 @@ LOG_LEVEL=INFO
         with open(".env", "w") as f:
             f.write(env_content)
         
-        print("✅ Configuration saved to .env file")
+        print(" Configuration saved to .env file")
         
         # Set restrictive permissions on .env file (Unix/Linux/Mac)
         if os.name != 'nt':  # Not Windows
             os.chmod(".env", 0o600)  # Read/write for owner only
-            print("✅ Set secure file permissions on .env")
+            print(" Set secure file permissions on .env")
         
     except Exception as e:
-        print(f"❌ Error writing .env file: {e}")
+        print(f" Error writing .env file: {e}")
         return False
     
     return True
@@ -101,7 +101,7 @@ def update_gitignore():
     
     # Check if .env is already ignored
     if ".env" not in gitignore_content:
-        print("📝 Adding .env to .gitignore for security...")
+        print(" Adding .env to .gitignore for security...")
         
         gitignore_additions = """
 # Environment variables - contains sensitive API keys
@@ -120,14 +120,14 @@ results/alignment_sprint.log
         with open(".gitignore", "a") as f:
             f.write(gitignore_additions)
         
-        print("✅ Updated .gitignore to protect sensitive files")
+        print(" Updated .gitignore to protect sensitive files")
     else:
-        print("✅ .gitignore already protects .env files")
+        print(" .gitignore already protects .env files")
 
 def test_configuration():
     """Test if the configuration works."""
     
-    print("\n🧪 Testing configuration...")
+    print("\n Testing configuration...")
     
     try:
         # Import and test config
@@ -180,10 +180,10 @@ def main():
     
     # Step 3: Test configuration
     if not test_configuration():
-        print("\n⚠️  Configuration test failed. Please check your API key.")
+        print("\n Configuration test failed. Please check your API key.")
         sys.exit(1)
     
-    print("\n🎉 Setup Complete!")
+    print("\n Setup Complete!")
     print("=" * 40)
     print("Your meditation AI alignment sprint is ready to run!")
     print()

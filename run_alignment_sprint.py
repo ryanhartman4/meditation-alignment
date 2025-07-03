@@ -123,8 +123,8 @@ def run_alignment_sprint(skip_preference_generation=False, skip_rft=True, quick_
     def stage3():
         dashboard_path, report_path = create_alignment_dashboard()
         sprint_results["stages"]["dashboard"] = {
-            "dashboard_path": dashboard_path,
-            "report_path": report_path
+            "dashboard_path": str(dashboard_path),
+            "report_path": str(report_path)
         }
         return dashboard_path, report_path
     

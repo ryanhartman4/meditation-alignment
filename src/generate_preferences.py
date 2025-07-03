@@ -6,10 +6,12 @@ Creates paired good/bad responses demonstrating safety violations.
 import json
 import os
 import time
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from openai import OpenAI
 from tqdm import tqdm
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 from config import (OPENAI_API_KEY, CRITIC_MODEL, DATA_DIR, 
                    PREFERENCE_PAIRS_PER_TOPIC, PREFERENCE_BATCH_SIZE,
                    MAX_TOKENS_PER_BATCH, TOKEN_PRICING, MAX_API_COST_USD,
@@ -18,8 +20,9 @@ from api_utils import make_api_call_with_retry
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# Track API costs
+# Track API costs with thread safety
 api_costs = {"total": 0.0, "calls": 0}
+api_cost_lock = Lock()
 
 def estimate_tokens(text: str) -> int:
     """Rough estimate of tokens (1 token ≈ 4 characters)."""
@@ -32,26 +35,29 @@ def check_cost_before_call(model: str, estimated_prompt_tokens: int, max_output_
     # Estimate worst-case cost (assuming max output tokens)
     estimated_cost = (estimated_prompt_tokens * pricing["input"]) + (max_output_tokens * pricing["output"])
     
-    if api_costs["total"] + estimated_cost > MAX_API_COST_USD:
-        raise RuntimeError(
-            f"API call would exceed cost limit. Current: ${api_costs['total']:.2f}, "
-            f"Estimated call cost: ${estimated_cost:.4f}, Limit: ${MAX_API_COST_USD}"
-        )
-    
-    if api_costs["total"] + estimated_cost > MAX_API_COST_USD * 0.9:
-        print(f" Warning: Next call may exceed budget. Current: ${api_costs['total']:.2f}")
+    with api_cost_lock:
+        if api_costs["total"] + estimated_cost > MAX_API_COST_USD:
+            raise RuntimeError(
+                f"API call would exceed cost limit. Current: ${api_costs['total']:.2f}, "
+                f"Estimated call cost: ${estimated_cost:.4f}, Limit: ${MAX_API_COST_USD}"
+            )
+        
+        if api_costs["total"] + estimated_cost > MAX_API_COST_USD * 0.9:
+            print(f" Warning: Next call may exceed budget. Current: ${api_costs['total']:.2f}")
 
 def track_api_cost(model: str, input_tokens: int, output_tokens: int):
     """Track API costs and warn if approaching limit."""
     pricing = TOKEN_PRICING.get(model, TOKEN_PRICING["gpt-4o-mini"])
     cost = (input_tokens * pricing["input"]) + (output_tokens * pricing["output"])
-    api_costs["total"] += cost
-    api_costs["calls"] += 1
     
-    if api_costs["total"] > MAX_API_COST_USD * 0.8:
-        print(f" Warning: API costs at ${api_costs['total']:.2f} (80% of ${MAX_API_COST_USD} limit)")
-    
-    return api_costs["total"]
+    with api_cost_lock:
+        api_costs["total"] += cost
+        api_costs["calls"] += 1
+        
+        if api_costs["total"] > MAX_API_COST_USD * 0.8:
+            print(f" Warning: API costs at ${api_costs['total']:.2f} (80% of ${MAX_API_COST_USD} limit)")
+        
+        return api_costs["total"]
 
 def generate_preference_batch(topic: str, n: int = PREFERENCE_BATCH_SIZE) -> List[Dict]:
     """Generate n preference pairs for a given meditation topic using production prompt system."""
@@ -235,6 +241,27 @@ Remember: This training data directly impacts AI safety systems that protect vul
         print(f"Error generating batch for {topic}: {e}")
         return []
 
+def generate_batch_with_metadata(topic: str, batch_size: int, batch_index: int) -> List[Dict]:
+    """Generate a batch and add metadata to each preference."""
+    batch = generate_preference_batch(topic, n=batch_size)
+    processed_preferences = []
+    
+    for pref in batch:
+        if pref and all(key in pref for key in ["chosen", "rejected", "violation_type", "explanation"]):
+            # Validate content length
+            if len(pref["chosen"]) < 50 or len(pref["rejected"]) < 50:
+                continue
+                
+            processed_preferences.append({
+                **pref,
+                "topic": topic,
+                "timestamp": datetime.now().isoformat(),
+                "batch_id": f"{topic}_{batch_index}",
+                "model": CRITIC_MODEL
+            })
+    
+    return processed_preferences
+
 def generate_all_preferences(test_mode=False):
     """Generate preference dataset for multiple topics.
     
@@ -349,44 +376,57 @@ def generate_all_preferences(test_mode=False):
             print("Generation cancelled.")
             return []
     
-    for topic in tqdm(topics, desc="Topics"):
-        # Generate in smaller batches for better quality
-        topic_preferences = []
+    # Determine maximum workers based on test mode and API limits
+    max_workers = 3 if test_mode else min(10, len(topics))  # Limit parallelism to avoid rate limits
+    
+    # Prepare all batch tasks
+    batch_tasks = []
+    for topic in topics:
         batches_needed = (pairs_per_topic + PREFERENCE_BATCH_SIZE - 1) // PREFERENCE_BATCH_SIZE
         
         for i in range(batches_needed):
-            # Calculate how many to generate in this batch
-            remaining = pairs_per_topic - len(topic_preferences)
+            remaining = pairs_per_topic - (i * PREFERENCE_BATCH_SIZE)
             batch_size = min(PREFERENCE_BATCH_SIZE, remaining)
             
-            if batch_size <= 0:
-                break
-                
-            print(f"  Generating batch {i+1}/{batches_needed} for {topic} (size: {batch_size})...")
-            batch = generate_preference_batch(topic, n=batch_size)
-            
-            # Add metadata to each preference
-            for pref in batch:
-                if pref and all(key in pref for key in ["chosen", "rejected", "violation_type", "explanation"]):
-                    # Validate content length
-                    if len(pref["chosen"]) < 50 or len(pref["rejected"]) < 50:
-                        print(f" Warning: Skipping preference with too short content")
-                        continue
-                        
-                    topic_preferences.append({
-                        **pref,
-                        "topic": topic,
-                        "timestamp": datetime.now().isoformat(),
-                        "batch_id": f"{topic}_{i}",
-                        "model": CRITIC_MODEL
-                    })
-            
-            # Rate limiting - only in non-test mode
-            if i < batches_needed - 1 and not test_mode:
-                time.sleep(0.1)  # Minimal delay to avoid rate limits
+            if batch_size > 0:
+                batch_tasks.append((topic, batch_size, i))
+    
+    print(f"  Total batches to generate: {len(batch_tasks)}")
+    print(f"  Using {max_workers} parallel workers")
+    
+    # Execute batches in parallel with progress bar
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        future_to_task = {
+            executor.submit(generate_batch_with_metadata, task[0], task[1], task[2]): task
+            for task in batch_tasks
+        }
         
-        all_preferences.extend(topic_preferences)
-        print(f"  Generated {len(topic_preferences)} preferences for {topic} (target: {pairs_per_topic})")
+        # Process completed tasks with progress bar
+        with tqdm(total=len(batch_tasks), desc="Generating batches") as pbar:
+            for future in as_completed(future_to_task):
+                task = future_to_task[future]
+                topic, batch_size, batch_index = task
+                
+                try:
+                    preferences = future.result()
+                    all_preferences.extend(preferences)
+                    pbar.set_postfix({"topic": topic, "batch": batch_index + 1})
+                except Exception as e:
+                    print(f"\nError generating batch for {topic} (batch {batch_index + 1}): {e}")
+                
+                pbar.update(1)
+    
+    # Group preferences by topic for reporting
+    topic_counts = {}
+    for pref in all_preferences:
+        topic = pref.get("topic", "unknown")
+        topic_counts[topic] = topic_counts.get(topic, 0) + 1
+    
+    print("\nGeneration complete. Results by topic:")
+    for topic in topics:
+        count = topic_counts.get(topic, 0)
+        print(f"  {topic}: {count} preferences (target: {pairs_per_topic})")
     
     # Save to JSONL file
     output_path = os.path.join(DATA_DIR, "preferences_synthetic.jsonl")
@@ -400,14 +440,10 @@ def generate_all_preferences(test_mode=False):
     # Create summary statistics
     stats = {
         "total_pairs": len(all_preferences),
-        "by_topic": {},
+        "by_topic": topic_counts,
         "by_violation": {},
         "generation_time": datetime.now().isoformat()
     }
-    
-    # Count by topic
-    for topic in topics:
-        stats["by_topic"][topic] = sum(1 for p in all_preferences if p.get("topic") == topic)
     
     # Count by violation type
     for pref in all_preferences:

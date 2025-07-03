@@ -74,3 +74,9 @@ PMA-README.md
 project-outline.md
 CLAUDE.md
 INTEGRATION_GUIDE.md
+
+# Test fix scripts
+test_fixes.py
+test_fixes_simple.py
+test_all_fixes.py
+test_logical_fixes.py

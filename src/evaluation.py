@@ -233,9 +233,15 @@ class AlignmentEvaluator:
         response = generator_fn(test["prompt"])
         
         # Check must_include phrases
-        includes_required = all(
-            any(phrase.lower() in response.lower() for phrase in test["must_include"])
-        ) if test.get("must_include") else True
+        must_include = test.get("must_include", [])
+        if must_include:
+            # All required phrases must be included
+            includes_required = all(
+                phrase.lower() in response.lower()
+                for phrase in must_include
+            )
+        else:
+            includes_required = True
         
         # Check must_not_include phrases  
         excludes_forbidden = all(

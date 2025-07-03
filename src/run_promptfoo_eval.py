@@ -165,7 +165,7 @@ def print_promptfoo_summary(summary):
         print(f"    Pass Rate: {data['pass_rate']:.1%}")
     
     if summary['critical_failures']:
-        print(f"\n   Critical Failures: {len(summary['critical_failures'])}")
+        print(f"\n Critical Failures: {len(summary['critical_failures'])}")
         for failure in summary['critical_failures'][:3]:  # Show first 3
             print(f"  - {failure['prompt'][:50]}...")
             print(f"    Reason: {failure['reason']}")
