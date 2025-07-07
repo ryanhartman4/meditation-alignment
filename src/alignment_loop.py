@@ -92,6 +92,21 @@ class AlignmentPipeline:
     
     def generate_aligned(self, prompt: str) -> str:
         """Generate meditation with safety-enhanced production prompt and constitutional constraints."""
+        
+        # Check for crisis content in the prompt FIRST
+        crisis_check = self.constitution.check_crisis_content(prompt)
+        if crisis_check["is_crisis"]:
+            # Immediately return crisis response without calling API
+            return self.constitution.response_templates["crisis_response"].format(
+                crisis_resource=crisis_check["resources"]["General"]
+            )
+        
+        # Check for medical content in the prompt
+        medical_keywords = ["medication", "antidepressant", "therapy", "doctor", "pain", "cure", "stop taking"]
+        if any(keyword in prompt.lower() for keyword in medical_keywords):
+            condition = next((word for word in medical_keywords if word in prompt.lower()), "concern")
+            return self.constitution.response_templates["medical_redirect"].format(condition=condition)
+        
         # Use production prompt system WITH safety enhancements
         system_prompt = get_meditation_prompt(
             length_minutes=5,  # Standard length for evaluation

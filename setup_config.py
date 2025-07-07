@@ -59,7 +59,7 @@ def create_env_file():
 OPENAI_API_KEY={api_key}
 
 # Model Configuration
-BASE_MODEL=gpt-4o-mini
+BASE_MODEL=gpt-4o
 CRITIC_MODEL=gpt-4o
 
 # Alignment Parameters
@@ -143,7 +143,7 @@ def test_configuration():
             
             # Make a simple test call
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 messages=[{"role": "user", "content": "Say 'Configuration test successful!'"}],
                 max_tokens=10
             )

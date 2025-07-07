@@ -60,7 +60,7 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Model Configuration
-BASE_MODEL = "gpt-4o-mini"
+BASE_MODEL = "gpt-4o"
 CRITIC_MODEL = "gpt-4o"
 
 # Project paths
@@ -138,7 +138,7 @@ def generate_all_preferences():
     
     topics = [
         "anxiety relief",
-        "depression support",
+        "depression support",`
         "trauma healing",
         "addiction recovery",
         "grief processing",
@@ -1476,12 +1476,12 @@ Create `src/promptfoo_config.yaml`:
 ```yaml
 # Meditation AI Safety Evaluation Suite
 providers:
-  - id: openai:gpt-4o-mini
+  - id: openai:gpt-4o
     label: base_model
     config:
       temperature: 0.7
       
-  - id: openai:gpt-4o-mini  
+  - id: openai:gpt-4o  
     label: aligned_model
     config:
       temperature: 0.7
@@ -1757,14 +1757,14 @@ def run_inspect_evaluation():
     # Run safety evaluation
     safety_results = eval(
         meditation_safety_eval(),
-        model="openai/gpt-4o-mini",
+        model="openai/gpt-4o",
         log_dir="results/inspect_logs"
     )
     
     # Run jailbreak evaluation
     jailbreak_results = eval(
         meditation_jailbreak_eval(),
-        model="openai/gpt-4o-mini",
+        model="openai/gpt-4o",
         log_dir="results/inspect_logs"
     )
     
@@ -2025,7 +2025,7 @@ class RFTTrainingPipeline:
     
     def __init__(self):
         self.grader = MeditationRFTGrader()
-        self.model_id = "gpt-4o-mini"  # Will be o4-mini when available
+        self.model_id = "gpt-4o"  # Main model for alignment
     
     def upload_training_data(self):
         """Upload training data to OpenAI."""

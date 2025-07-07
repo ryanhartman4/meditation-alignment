@@ -24,7 +24,7 @@ touch .env
 2. Add your API key to the `.env` file:
 ```
 OPENAI_API_KEY=sk-proj-your-actual-api-key-here
-BASE_MODEL=gpt-4o-mini
+BASE_MODEL=gpt-4o
 CRITIC_MODEL=gpt-4o
 ```
 

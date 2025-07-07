@@ -1,6 +1,6 @@
 """
 Constitutional AI system for meditation content safety.
-Implements pattern-based safety rules and content rewriting.
+Implements pattern-based safety rules and content rewriting with improved regex handling.
 """
 
 import re
@@ -30,64 +30,68 @@ class MeditationConstitution:
         self.safety_thresholds = self.constitution_data["safety_thresholds"]
         self.response_templates = self.constitution_data["response_templates"]
         
-        # Compile regex patterns for efficiency
+        # Compile regex patterns for efficiency (both main patterns and exceptions)
+        self._compile_patterns()
+        
+        print(f"Loaded Constitutional AI v{self.constitution_data.get('version', '1.0')} with {len(self.principles)} principles")
+    
+    def _compile_patterns(self):
+        """Compile all patterns and exception patterns with improved error handling."""
         for principle_name, principle_data in self.principles.items():
+            # Compile main patterns
             principle_data["compiled_patterns"] = []
+            failed_patterns = []
+            
             for pattern in principle_data["patterns"]:
                 try:
-                    # Try to compile the pattern
                     compiled = re.compile(pattern, re.IGNORECASE)
                     principle_data["compiled_patterns"].append(compiled)
                 except re.error as e:
-                    # If pattern has issues (like variable-width lookbehind), use simple pattern
-                    # Extract the main pattern without lookbehind/lookahead
-                    simple_pattern = pattern
-                    # Remove lookbehind assertions
-                    simple_pattern = re.sub(r'\(\?<[!=][^)]+\)', '', simple_pattern)
-                    # Remove lookahead assertions  
-                    simple_pattern = re.sub(r'\(\?[!=][^)]+\)', '', simple_pattern)
-                    # Clean up any remaining parentheses
-                    simple_pattern = simple_pattern.replace('()', '').strip()
-                    
-                    if simple_pattern:
+                    failed_patterns.append((pattern, str(e)))
+                    # Create a simple word boundary version as fallback
+                    simple_pattern = pattern.replace("\\b", "").replace("\\", "")
+                    simple_pattern = f"\\b{re.escape(simple_pattern)}\\b"
+                    try:
                         compiled = re.compile(simple_pattern, re.IGNORECASE)
                         principle_data["compiled_patterns"].append(compiled)
                         print(f"Warning: Simplified pattern for {principle_name}: {pattern} -> {simple_pattern}")
-        
-        # Add context-aware exceptions
-        self.context_exceptions = {
-            "inclusivity": [
-                # Phrases that make physical instructions optional
-                "if you can", "when you're able", "for those who can",
-                "if comfortable", "optional:", "alternatively",
-                # Mental/visualization context
-                "in your mind", "imagine", "visualize", "picture yourself"
-            ],
-            "medical_safety": [
-                # Educational context
-                "speak with your doctor", "consult a professional",
-                "medical supervision", "healthcare provider"
-            ]
-        }
-    
-    def _check_context_exceptions(self, text: str, principle: str, match_pos: int) -> bool:
-        """Check if a pattern match should be excepted due to context."""
-        if principle not in self.context_exceptions:
-            return False
+                    except re.error:
+                        print(f"Error: Could not compile pattern for {principle_name}: {pattern}")
             
-        # Get surrounding context (100 chars before and after)
-        context_start = max(0, match_pos - 100)
-        context_end = min(len(text), match_pos + 100)
-        context = text[context_start:context_end].lower()
+            # Compile exception patterns
+            principle_data["compiled_exceptions"] = []
+            if "exception_patterns" in principle_data:
+                for pattern in principle_data["exception_patterns"]:
+                    try:
+                        compiled = re.compile(pattern, re.IGNORECASE)
+                        principle_data["compiled_exceptions"].append(compiled)
+                    except re.error as e:
+                        print(f"Warning: Could not compile exception pattern for {principle_name}: {pattern} ({e})")
+            
+            if failed_patterns:
+                print(f"Notice: {len(failed_patterns)} patterns simplified for {principle_name}")
+    
+    def _is_exception_match(self, text: str, principle_name: str, match_start: int, match_end: int) -> bool:
+        """Check if a pattern match should be excepted due to exception patterns."""
+        principle_data = self.principles[principle_name]
         
-        # Check if any exception phrases appear near the match
-        for exception in self.context_exceptions[principle]:
-            if exception.lower() in context:
+        if "compiled_exceptions" not in principle_data:
+            return False
+        
+        # Get surrounding context (200 chars before and after match)
+        context_start = max(0, match_start - 200)
+        context_end = min(len(text), match_end + 200)
+        context = text[context_start:context_end]
+        
+        # Check if any exception patterns match in the context
+        for exception_pattern in principle_data["compiled_exceptions"]:
+            if exception_pattern.search(context):
                 return True
+        
         return False
     
     def evaluate(self, text: str) -> Tuple[float, List[Dict]]:
-        """Evaluate text for constitutional violations with hierarchical scoring."""
+        """Evaluate text for constitutional violations with improved exception handling."""
         violations = []
         critical_violations = 0
         high_violations = 0
@@ -98,17 +102,18 @@ class MeditationConstitution:
             for i, pattern in enumerate(principle_data["compiled_patterns"]):
                 matches = list(pattern.finditer(text))
                 for match in matches:
-                    # Check context exceptions
-                    if self._check_context_exceptions(text, principle_name, match.start()):
+                    # Check if this match should be excepted
+                    if self._is_exception_match(text, principle_name, match.start(), match.end()):
                         continue
                         
                     violations.append({
                         "principle": principle_name,
                         "rule": principle_data["rule"],
-                        "matched_pattern": principle_data["patterns"][i],
+                        "matched_pattern": principle_data["patterns"][i] if i < len(principle_data["patterns"]) else "compiled pattern",
                         "matched_text": match.group(),
                         "position": match.start(),
-                        "severity": principle_data["severity"]
+                        "severity": principle_data["severity"],
+                        "context": text[max(0, match.start()-50):match.end()+50]
                     })
                     
                     # Count violations by severity
@@ -188,11 +193,14 @@ class MeditationConstitution:
         crisis_patterns = self.principles["crisis_safety"]["compiled_patterns"]
         
         for pattern in crisis_patterns:
-            if pattern.search(text):
-                return {
-                    "is_crisis": True,
-                    "resources": self.principles["crisis_safety"]["crisis_resources"]
-                }
+            match = pattern.search(text)
+            if match:
+                # Check if this is excepted
+                if not self._is_exception_match(text, "crisis_safety", match.start(), match.end()):
+                    return {
+                        "is_crisis": True,
+                        "resources": self.principles["crisis_safety"]["crisis_resources"]
+                    }
         
         return {"is_crisis": False, "resources": None}
     
@@ -205,12 +213,15 @@ class MeditationConstitution:
         if safety_score >= 0.95 and not violations:
             return text
         
-        # Check for crisis content first
-        crisis_check = self.check_crisis_content(context)
-        if crisis_check["is_crisis"]:
+        # Check for crisis content in both the context and the generated text
+        crisis_check_context = self.check_crisis_content(context)
+        crisis_check_text = self.check_crisis_content(text)
+        
+        if crisis_check_context["is_crisis"] or crisis_check_text["is_crisis"]:
             # Use crisis response template
+            resources = crisis_check_context["resources"] if crisis_check_context["is_crisis"] else crisis_check_text["resources"]
             return self.response_templates["crisis_response"].format(
-                crisis_resource=crisis_check["resources"]["General"]
+                crisis_resource=resources["General"]
             )
         
         # Check for medical content
@@ -263,13 +274,13 @@ Keep the same general structure and length. Focus on being supportive and inclus
             
             # If still has critical violations, return generic safe version
             if new_safety_score < 0.8 or any(v["severity"] >= 1.0 for v in new_violations):
-                return self.response_templates["generic_safe"]
+                return self.get_generic_safe_meditation(context)
             
             return rewritten
             
         except Exception as e:
             print(f"Error applying constitution: {e}")
-            return self.response_templates["generic_safe"]
+            return self.get_generic_safe_meditation(context)
     
     def explain_violations(self, violations: List[Dict]) -> str:
         """Create human-readable explanation of violations."""
@@ -315,6 +326,24 @@ Keep the same general structure and length. Focus on being supportive and inclus
             "explanation": self.explain_violations(violations),
             "detailed_violations": violations
         }
+    
+    def get_generic_safe_meditation(self, context: str = "") -> str:
+        """Get a generic safe meditation, with crisis handling if needed."""
+        # Check if the context contains crisis content
+        crisis_check = self.check_crisis_content(context)
+        if crisis_check["is_crisis"]:
+            return self.response_templates["crisis_response"].format(
+                crisis_resource=crisis_check["resources"]["General"]
+            )
+        
+        # Check for medical context
+        medical_keywords = ["medication", "antidepressant", "therapy", "doctor", "pain", "cure"]
+        if any(keyword in context.lower() for keyword in medical_keywords):
+            condition = next((word for word in medical_keywords if word in context.lower()), "concern")
+            return self.response_templates["medical_redirect"].format(condition=condition)
+        
+        # Return generic safe meditation
+        return self.response_templates["generic_safe"]
 
 # Test the constitution if run directly
 if __name__ == "__main__":

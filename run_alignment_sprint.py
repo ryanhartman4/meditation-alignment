@@ -72,7 +72,7 @@ def check_prerequisites():
     print("All prerequisites met")
     return True
 
-def run_alignment_sprint(skip_preference_generation=False, skip_rft=True, quick_mode=False):
+def run_alignment_sprint(skip_rft=True, quick_mode=False):
     """Run the complete alignment sprint."""
     
     header_title = "ONE-NIGHT MEDITATION AI ALIGNMENT SPRINT"
@@ -93,77 +93,88 @@ def run_alignment_sprint(skip_preference_generation=False, skip_rft=True, quick_
         "stages": {}
     }
     
-    # Stage 1: Generate Preferences (if needed)
-    if not skip_preference_generation:
-        def stage1():
-            # Use test mode if quick mode is enabled
-            preferences = generate_all_preferences(test_mode=quick_mode)
-            sprint_results["stages"]["preference_generation"] = {
-                "total_pairs": len(preferences),
-                "topics": len(set(p["topic"] for p in preferences)),
-                "test_mode": quick_mode
-            }
-            return preferences
-        
-        stage_name = "Generate Synthetic Preferences (TEST MODE)" if quick_mode else "Generate Synthetic Preferences"
-        run_stage(stage_name, stage1)
-    else:
-        print("\nSkipping preference generation (using existing data)")
     
-    # Stage 2: Run Alignment Pipeline
-    def stage2():
+    # Stage 1: Run Alignment Pipeline
+    def stage1():
         pipeline = AlignmentPipeline(quick_mode=quick_mode)
         results = pipeline.run_full_evaluation()
         sprint_results["stages"]["alignment"] = results["overall_summary"]
         return results
     
-    run_stage("Core Alignment Evaluation", stage2)
+    run_stage("Core Alignment Evaluation", stage1)
     
-    # Stage 3: Create Dashboard
-    def stage3():
+    # Stage 2: Create Dashboard
+    def stage2():
         dashboard_path = create_alignment_dashboard()
         sprint_results["stages"]["dashboard"] = {
             "dashboard_path": str(dashboard_path)
         }
         return dashboard_path
     
-    dashboard_path = run_stage("Create Dashboard", stage3)
+    dashboard_path = run_stage("Create Dashboard", stage2)
     
-    # Stage 4: Advanced Red-Teaming (Optional)
+    # Stage 3: Advanced Red-Teaming (Optional)
     try:
         print("\n" + "-"*60)
         response = input("Run advanced red-teaming with Promptfoo? (y/n): ")
         if response.lower() == 'y':
-            def stage4():
+            def stage3():
                 from run_promptfoo_eval import run_promptfoo_evaluation
                 results = run_promptfoo_evaluation()
                 sprint_results["stages"]["promptfoo"] = results
                 return results
             
-            run_stage("Promptfoo Red-Teaming", stage4, required=False)
+            run_stage("Promptfoo Red-Teaming", stage3, required=False)
     except:
         print("Promptfoo not available, skipping...")
     
-    # Stage 5: O4-Mini RFT (Optional, expensive)
+    # Stage 4: GPT-4o-Mini RFT (Optional, expensive)
     if not skip_rft:
         print("\n" + "-"*60)
-        print("o4-Mini Reinforcement Fine-Tuning")
-        print("This will:")
-        print("  - Grade preference pairs using GPT-4o")
-        print("  - Prepare data for fine-tuning")
-        print("  - Start a fine-tuning job (takes 1-2 hours)")
-        print("  - Cost approximately $25-50")
+        print("o4-mini Reinforcement Fine-Tuning")
         
-        response = input("\nProceed with RFT? (y/n): ")
-        if response.lower() == 'y':
-            def stage6():
-                from rft_training import RFTTrainingPipeline
-                pipeline = RFTTrainingPipeline()
-                results = pipeline.run_full_pipeline()
-                sprint_results["stages"]["rft"] = results
-                return results
+        # Check if preferences exist
+        preference_path = os.path.join(DATA_DIR, "preferences_synthetic.jsonl")
+        if not os.path.exists(preference_path):
+            print("\n WARNING: Preference Generation Required")
+            print("This stage requires synthetic preference data for training.")
+            print("\nPreference generation will create:")
+            print("  - Synthetic unsafe meditation content")
+            print("  - Examples with medical misinformation")
+            print("  - Crisis handling failures")
+            print("  - Potentially harmful advice")
+            print("\nThis is necessary to train the model to avoid these patterns.")
             
-            run_stage("o4-Mini Reinforcement Fine-Tuning", stage6, required=False)
+            response = input("\nGenerate synthetic preferences? (y/n): ")
+            if response.lower() == 'y':
+                print("\nGenerating preferences...")
+                preferences = generate_all_preferences(test_mode=quick_mode)
+                sprint_results["stages"]["preference_generation"] = {
+                    "total_pairs": len(preferences),
+                    "topics": len(set(p["topic"] for p in preferences)),
+                    "test_mode": quick_mode
+                }
+            else:
+                print("Cannot proceed with RFT without preference data. Skipping...")
+        
+        # Only proceed if preferences exist or were just generated
+        if os.path.exists(preference_path):
+            print("\nRFT will:")
+            print("  - Grade preference pairs using GPT-4o")
+            print("  - Prepare data for fine-tuning")
+            print("  - Start a fine-tuning job (takes 1-2 hours)")
+            print("  - Cost approximately $25-50")
+            
+            response = input("\nProceed with RFT? (y/n): ")
+            if response.lower() == 'y':
+                def stage4():
+                    from rft_training import RFTTrainingPipeline
+                    pipeline = RFTTrainingPipeline()
+                    results = pipeline.run_full_pipeline()
+                    sprint_results["stages"]["rft"] = results
+                    return results
+                
+                run_stage("GPT-4o-Mini Reinforcement Fine-Tuning", stage4, required=False)
     
     # Final Summary
     sprint_results["end_time"] = datetime.now().isoformat()
@@ -206,11 +217,6 @@ def main():
         description="Run the One-Night Meditation AI Alignment Sprint"
     )
     parser.add_argument(
-        "--skip-preferences",
-        action="store_true",
-        help="Skip preference generation (use existing data)"
-    )
-    parser.add_argument(
         "--include-rft",
         action="store_true",
         help="Include o4-Mini RFT (expensive and time-consuming)"
@@ -226,7 +232,6 @@ def main():
     # Welcome message
     print_header("WELCOME TO THE MEDITATION AI ALIGNMENT SPRINT")
     print("This sprint will demonstrate:")
-    print("Synthetic preference generation")
     print("Constitutional AI implementation")
     print("Comprehensive safety evaluation")
     print("Red-team testing")
@@ -245,7 +250,6 @@ def main():
     
     # Run the sprint
     results = run_alignment_sprint(
-        skip_preference_generation=args.skip_preferences,
         skip_rft=not args.include_rft,
         quick_mode=args.quick
     )

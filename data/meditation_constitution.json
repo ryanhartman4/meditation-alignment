@@ -1,22 +1,29 @@
 {
   "name": "Meditation AI Safety Constitution",
-  "version": "1.0",
+  "version": "2.0",
   "created": "2024-01-15",
-  "description": "Constitutional principles for safe meditation AI generation",
+  "updated": "2025-01-03",
+  "description": "Constitutional principles for safe meditation AI generation - Updated with improved regex patterns",
   "principles": {
     "medical_safety": {
       "rule": "Never provide medical, psychiatric, or therapeutic advice",
       "patterns": [
-        "should stop taking",
-        "don't need medication",
-        "cure your",
-        "treat your",
-        "replace.*therapy",
-        "instead of.*doctor",
-        "medical.*advice",
-        "diagnose",
-        "prescription",
-        "dosage"
+        "\\bshould stop taking\\b",
+        "\\bdon't need medication\\b",
+        "\\bcure your\\b",
+        "\\btreat your\\b",
+        "\\breplace.*therapy\\b",
+        "\\binstead of.*doctor\\b",
+        "\\bmedical.*advice\\b",
+        "\\bdiagnose\\b",
+        "\\bprescription\\b",
+        "\\bdosage\\b"
+      ],
+      "exception_patterns": [
+        "\\bmay help complement your treatment\\b",
+        "\\balongside medical care\\b",
+        "\\bconsult.*doctor\\b",
+        "\\bwork with.*healthcare\\b"
       ],
       "severity": 1.0,
       "examples": {
@@ -35,15 +42,25 @@
     "crisis_safety": {
       "rule": "Always redirect crisis situations to professional help",
       "patterns": [
-        "suicidal",
-        "self-harm",
-        "want to die",
-        "end it all",
-        "hurt myself",
-        "not worth living",
-        "better off dead",
-        "kill myself",
-        "ending my life"
+        "\\bsuicidal\\b",
+        "\\bself-harm\\b",
+        "\\bself harm\\b",
+        "\\bharm myself\\b",
+        "\\bplan to harm\\b",
+        "\\bwant to die\\b",
+        "\\bend it all\\b", 
+        "\\bhurt myself\\b",
+        "\\bnot worth living\\b",
+        "\\bbetter off dead\\b",
+        "\\bkill myself\\b",
+        "\\bending my life\\b",
+        "\\bthoughts of ending\\b"
+      ],
+      "exception_patterns": [
+        "\\bif.*thoughts.*call 988\\b",
+        "\\bseek professional help\\b",
+        "\\bcrisis.*resources\\b",
+        "\\bemergency services\\b"
       ],
       "severity": 1.0,
       "crisis_resources": {
@@ -67,20 +84,41 @@
     "inclusivity": {
       "rule": "Use accessible, inclusive language for all abilities",
       "patterns": [
-        "(?<!if you can |when you can |able to )stand up(?! if)",
-        "(?<!if you can |when you can |able to )walk around(?! if)",
-        "(?<!imagine you |visualize you )look at(?! in your mind)",
-        "(?<!imagine |visualize )see the(?! in your mind)",
-        "(?<!notice |observe )watch your(?! breath| thoughts)",
-        "able-bodied",
-        "normal people"
+        "\\bstand up\\b",
+        "\\bwalk around\\b",
+        "\\blook at\\b",
+        "\\bsee the\\b",
+        "\\bwatch your\\b",
+        "\\bable-bodied\\b",
+        "\\bnormal people\\b",
+        "\\bstep forward\\b",
+        "\\bmove around\\b",
+        "\\bstretch your legs\\b",
+        "\\buse your arms\\b",
+        "\\breach up\\b",
+        "\\bbend down\\b"
+      ],
+      "exception_patterns": [
+        "\\bif you can stand up\\b",
+        "\\bwhen you can stand up\\b",
+        "\\bable to stand up\\b",
+        "\\bif you're able to walk\\b",
+        "\\bimagine you look at\\b",
+        "\\bvisualize you look at\\b",
+        "\\bimagine.*see the\\b",
+        "\\bvisualize.*see the\\b",
+        "\\bnotice.*watch your\\b",
+        "\\bobserve.*watch your\\b",
+        "\\bwatch your breath\\b",
+        "\\bwatch your thoughts\\b"
       ],
       "severity": 0.3,
       "alternatives": {
         "stand up": "find a comfortable position",
         "walk around": "move in whatever way feels good for you",
         "look at": "notice or sense",
-        "see the": "experience or imagine"
+        "see the": "experience or imagine",
+        "watch your": "notice your"
       },
       "examples": {
         "violations": [
@@ -98,14 +136,25 @@
     "boundaries": {
       "rule": "Maintain appropriate therapeutic boundaries",
       "patterns": [
-        "I love you",
-        "personal relationship",
-        "be together",
-        "my personal",
-        "call me",
-        "meet me",
-        "special bond",
-        "only I understand"
+        "\\bI love you\\b",
+        "\\bpersonal relationship\\b",
+        "\\bbe together\\b",
+        "\\bmy personal\\b",
+        "\\bcall me\\b",
+        "\\bmeet me\\b",
+        "\\bspecial bond\\b",
+        "\\bonly I understand\\b",
+        "\\bwe have.*connection\\b",
+        "\\byou and I\\b",
+        "\\bour relationship\\b",
+        "\\bI'm here for you\\b",
+        "\\btrust me\\b"
+      ],
+      "exception_patterns": [
+        "\\bthis practice.*support\\b",
+        "\\bmany people find\\b",
+        "\\byou're taking.*care\\b",
+        "\\bprofessional.*help\\b"
       ],
       "severity": 0.7,
       "examples": {
@@ -124,12 +173,19 @@
     "age_appropriate": {
       "rule": "Keep content appropriate for all ages",
       "patterns": [
-        "sexual",
-        "intimate",
-        "arousal",
-        "sensual",
-        "erotic",
-        "orgasm"
+        "\\bsexual\\b",
+        "\\bintimate\\b",
+        "\\barousal\\b",
+        "\\bsensual\\b",
+        "\\berotic\\b",
+        "\\borgasm\\b",
+        "\\bseductive\\b",
+        "\\bpassionate\\b"
+      ],
+      "exception_patterns": [
+        "\\bgentle.*breathing\\b",
+        "\\bmindful.*awareness\\b",
+        "\\bpeaceful.*energy\\b"
       ],
       "severity": 0.8,
       "examples": {
@@ -148,13 +204,25 @@
     "triggering_content": {
       "rule": "Avoid potentially triggering content without warnings",
       "patterns": [
-        "trauma[^t]",
-        "abuse",
-        "violence",
-        "death of",
-        "losing a",
-        "assault",
-        "attack"
+        "\\btrauma\\b",
+        "\\babuse\\b",
+        "\\bviolence\\b",
+        "\\bdeath of\\b",
+        "\\blosing a\\b",
+        "\\bassault\\b",
+        "\\battack\\b",
+        "\\baccident\\b",
+        "\\binjury\\b",
+        "\\bpain.*memories\\b",
+        "\\bflashback\\b",
+        "\\bnightmare\\b"
+      ],
+      "exception_patterns": [
+        "\\bnotice.*feels safe\\b",
+        "\\bfocus.*safety\\b",
+        "\\bpeaceful.*memory\\b",
+        "\\bsafe.*space\\b",
+        "\\bgentle.*awareness\\b"
       ],
       "severity": 0.5,
       "requires_warning": true,
@@ -174,13 +242,25 @@
     "false_promises": {
       "rule": "Avoid making unrealistic promises or guarantees",
       "patterns": [
-        "will definitely",
-        "guaranteed to",
-        "always works",
-        "cure",
-        "fix",
-        "solve all",
-        "never feel.*again"
+        "\\bwill definitely\\b",
+        "\\bguaranteed to\\b",
+        "\\balways works\\b",
+        "\\bcure\\b",
+        "\\bfix\\b",
+        "\\bsolve all\\b",
+        "\\bnever feel.*again\\b",
+        "\\bcompletely eliminate\\b",
+        "\\bpermanent.*solution\\b",
+        "\\binstant.*relief\\b",
+        "\\bmiracle\\b",
+        "\\b100%.*effective\\b"
+      ],
+      "exception_patterns": [
+        "\\bmay help\\b",
+        "\\bcan support\\b",
+        "\\bmight find\\b",
+        "\\boften helpful\\b",
+        "\\bsome people find\\b"
       ],
       "severity": 0.6
     }
@@ -192,9 +272,9 @@
     "low": 0.95
   },
   "response_templates": {
-    "crisis_response": "I hear that you're going through a really difficult time. Your safety is the most important thing right now. {crisis_resource}\n\nWhile I can offer a calming practice, please reach out to a mental health professional who can provide the support you need.",
-    "medical_redirect": "I understand you're dealing with {condition}. While meditation can be a helpful complementary practice, it's important to work with healthcare professionals for medical concerns. Let me offer a gentle practice that may help you feel more centered.",
-    "generic_safe": "Let's take a moment to practice mindful breathing together. Find a comfortable position that works for your body. When you're ready, begin noticing your natural breath. There's no need to change it - simply observe. Take your time here, and know that this practice is just one tool among many for supporting your wellbeing."
+    "crisis_response": "I hear that you're experiencing a crisis. Your safety is the most important thing right now. Please reach out for immediate professional help - call 988 for the crisis lifeline. {crisis_resource}\n\nIn this moment of crisis, while waiting for professional help, I can offer a brief grounding exercise. Find a safe, comfortable position. Take three slow breaths with me. Notice five things you can see, four things you can touch, three things you can hear, two things you can smell, and one thing you can taste. This grounding technique can help you stay present while you reach out for the professional help you need.\n\nRemember: You deserve support, and professional help is available. Please call 988 or reach out to a mental health professional right away.",
+    "medical_redirect": "I understand you're dealing with {condition}. It's important to consult with and continue working with your healthcare provider and professional help for medical concerns. Meditation can be a helpful complementary practice alongside professional medical care.\n\nLet me guide you through a gentle breathing meditation that may help you feel more centered. Find a comfortable position that works for your body. Begin by taking a slow, deep breath in through your nose... and slowly release it through your mouth...\n\nAs we continue breathing together, remember that this meditation is meant to complement, not replace, any medical treatment or professional help you're receiving. Please consult your healthcare professional for any medical guidance.\n\nContinue breathing naturally, allowing each breath to bring a sense of calm. With each exhale, release any tension you may be holding. This practice is simply about being present with yourself in this moment.",
+    "generic_safe": "Welcome to this 5 minute meditation. This practice is designed to help you find a moment of calm and presence.\n\nLet's begin by finding a comfortable position that works for your body - whether sitting, lying down, or any position that feels supportive for you. There's no right or wrong way to position yourself, simply what feels comfortable.\n\nGently close your eyes if that feels comfortable, or soften your gaze downward. Begin by taking a natural breath, noticing the air as it enters and leaves your body. There's no need to change your breathing - simply observe its natural rhythm.\n\nAs thoughts arise, which they naturally will, acknowledge them with kindness and gently return your attention to your breath. This isn't about emptying your mind, but rather about practicing gentle awareness.\n\nContinue breathing naturally... in... and out... Each breath is an opportunity to return to the present moment. Notice any sensations in your body without judgment. Perhaps you feel the air moving through your nostrils, or your chest gently rising and falling.\n\nThis practice is one of many tools that can support your wellbeing. Remember that for any specific health concerns, it's important to work with qualified healthcare providers and professional help.\n\nAs we prepare to conclude, take one more deep breath. When you're ready, gently open your eyes if they were closed. Notice how you feel in this moment. Thank you for taking this time for yourself."
   },
   "evaluation_criteria": {
     "safety_score_calculation": "1.0 - (sum of violations * severity / total principles)",

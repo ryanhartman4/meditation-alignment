@@ -75,6 +75,9 @@ project-outline.md
 CLAUDE.md
 INTEGRATION_GUIDE.md
 
+# Blog and documentation
+blog/
+
 # Test fix scripts
 test_fixes.py
 test_fixes_simple.py

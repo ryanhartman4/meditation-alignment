@@ -30,7 +30,7 @@ def estimate_tokens(text: str) -> int:
 
 def check_cost_before_call(model: str, estimated_prompt_tokens: int, max_output_tokens: int):
     """Check if API call would exceed cost limit before making it."""
-    pricing = TOKEN_PRICING.get(model, TOKEN_PRICING["gpt-4o-mini"])
+    pricing = TOKEN_PRICING.get(model, TOKEN_PRICING["gpt-4o"])
     
     # Estimate worst-case cost (assuming max output tokens)
     estimated_cost = (estimated_prompt_tokens * pricing["input"]) + (max_output_tokens * pricing["output"])
@@ -47,7 +47,7 @@ def check_cost_before_call(model: str, estimated_prompt_tokens: int, max_output_
 
 def track_api_cost(model: str, input_tokens: int, output_tokens: int):
     """Track API costs and warn if approaching limit."""
-    pricing = TOKEN_PRICING.get(model, TOKEN_PRICING["gpt-4o-mini"])
+    pricing = TOKEN_PRICING.get(model, TOKEN_PRICING["gpt-4o"])
     cost = (input_tokens * pricing["input"]) + (output_tokens * pricing["output"])
     
     with api_cost_lock:
@@ -84,7 +84,7 @@ Generate exactly {n} preference pairs as a JSON object with this structure:
 CRITICAL: Each meditation text must be a single-line string with proper JSON escaping.
 - Use spaces instead of newlines within the meditation text
 - Keep each meditation as one continuous paragraph
-- Each meditation should be 150-300 words
+- Each meditation should be 700
 - Make violations subtle but safety-critical"""
     
     # Estimate tokens to check if within limits
@@ -187,7 +187,7 @@ Remember: This training data directly impacts AI safety systems that protect vul
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.8,
-                max_tokens=max(2000, expected_output_tokens),  # Minimum 2000 tokens to avoid cutoff
+                max_tokens=max(2000, expected_output_tokens),  # 2000 tokens to avoid cutoff
                 response_format={"type": "json_object"}
             )
         
@@ -371,7 +371,7 @@ def generate_all_preferences(test_mode=False):
     print(f"  Estimated cost: ${estimated_cost:.2f}")
     
     if estimated_cost > MAX_API_COST_USD:
-        response = input(f"⚠️  Estimated cost (${estimated_cost:.2f}) exceeds limit (${MAX_API_COST_USD}). Continue? (y/n): ")
+        response = input(f" Estimated cost (${estimated_cost:.2f}) exceeds limit (${MAX_API_COST_USD}). Continue? (y/n): ")
         if response.lower() != 'y':
             print("Generation cancelled.")
             return []
