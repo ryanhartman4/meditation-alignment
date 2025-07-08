@@ -205,15 +205,15 @@ class MeditationConstitution:
         return {"is_crisis": False, "resources": None}
     
     def apply_constitution(self, text: str, context: str = "") -> str:
-        """Rewrite text to follow constitutional principles."""
+        """Apply minimal corrections to text for safety while preserving meditation quality."""
         
         safety_score, violations = self.evaluate(text)
         
-        # If text is safe enough, return as is
-        if safety_score >= 0.95 and not violations:
+        # Only intervene for serious violations - raised threshold
+        if safety_score >= 0.85 or not any(v["severity"] >= 0.8 for v in violations):
             return text
         
-        # Check for crisis content in both the context and the generated text
+        # Check for crisis content - this always requires intervention
         crisis_check_context = self.check_crisis_content(context)
         crisis_check_text = self.check_crisis_content(text)
         
@@ -224,62 +224,64 @@ class MeditationConstitution:
                 crisis_resource=resources["General"]
             )
         
-        # Check for medical content
-        medical_keywords = ["medication", "antidepressant", "therapy", "doctor", "pain", "cure"]
-        if any(keyword in context.lower() for keyword in medical_keywords):
-            # Use medical redirect template
+        # For severe medical violations, use redirect template
+        medical_violations = [v for v in violations if v["principle"] == "medical_safety" and v["severity"] >= 1.0]
+        if medical_violations:
+            medical_keywords = ["medication", "antidepressant", "therapy", "doctor", "pain", "cure"]
             condition = next((word for word in medical_keywords if word in context.lower()), "concern")
             return self.response_templates["medical_redirect"].format(condition=condition)
         
-        # Build constitutional rewrite prompt
-        violated_rules = list(set(v["rule"] for v in violations))
+        # For other violations, attempt minimal corrections
+        # Focus only on critical and high severity issues
+        critical_violations = [v for v in violations if v["severity"] >= 0.8]
         
-        # Get alternatives for common violations
-        alternatives = []
-        if "inclusivity" in [v["principle"] for v in violations]:
-            alternatives.extend([
-                f"- Replace '{k}' with '{v}'" 
-                for k, v in self.principles["inclusivity"].get("alternatives", {}).items()
-            ])
+        if not critical_violations:
+            return text  # Medium/low violations can pass
         
-        prompt = f"""Rewrite this meditation to follow these safety principles:
-{chr(10).join(f"- {rule}" for rule in violated_rules)}
+        # Create a more gentle, preservation-focused prompt
+        specific_issues = []
+        for v in critical_violations[:3]:  # Limit to top 3 issues
+            specific_issues.append(f"- {v['matched_text']}: {v['rule']}")
+        
+        prompt = f"""Make minimal edits to this meditation to address only these specific safety concerns:
+{chr(10).join(specific_issues)}
 
-Additionally, always follow these rules:
-{chr(10).join(f"- {p['rule']}" for p in self.principles.values())}
-
-Specific corrections needed:
-{chr(10).join(alternatives) if alternatives else "Make appropriate safety corrections"}
+IMPORTANT: 
+- Preserve the original tone, flow, and structure as much as possible
+- Make the smallest changes necessary to address the safety issues
+- Keep the same meditation style and voice
+- Don't add unnecessary warnings or disclaimers
+- Focus on rephrasing problematic parts rather than removing content
 
 Original meditation:
 {text}
 
-Context: {context}
-
-Create a safe, helpful meditation that addresses the same topic without violating any principles.
-Keep the same general structure and length. Focus on being supportive and inclusive."""
+Provide the lightly edited meditation that addresses only the specific issues mentioned above."""
         
         try:
             response = client.chat.completions.create(
                 model=BASE_MODEL,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.7,
-                max_tokens=1000
+                temperature=0.3,  # Lower temperature for more conservative edits
+                max_tokens=1200
             )
             
             rewritten = response.choices[0].message.content
             
-            # Check if rewrite is safe
+            # Quick safety check - only reject if critical violations remain
             new_safety_score, new_violations = self.evaluate(rewritten)
             
-            # If still has critical violations, return generic safe version
-            if new_safety_score < 0.8 or any(v["severity"] >= 1.0 for v in new_violations):
+            # Only fall back to generic if critical violations persist
+            if any(v["severity"] >= 1.0 for v in new_violations):
                 return self.get_generic_safe_meditation(context)
             
             return rewritten
             
         except Exception as e:
-            print(f"Error applying constitution: {e}")
+            print(f"Error applying minimal corrections: {e}")
+            # On error, return original if it's not too unsafe
+            if safety_score >= 0.7:
+                return text
             return self.get_generic_safe_meditation(context)
     
     def explain_violations(self, violations: List[Dict]) -> str:

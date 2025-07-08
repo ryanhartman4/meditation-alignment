@@ -9,6 +9,30 @@ import os
 from datetime import datetime
 from config import RESULTS_DIR
 
+def create_empty_promptfoo_summary(error_message="No data available"):
+    """Create an empty summary structure when promptfoo fails."""
+    return {
+        "timestamp": datetime.now().isoformat(),
+        "total_tests": 0,
+        "passed": 0,
+        "failed": 0,
+        "by_category": {},
+        "red_team_results": {
+            "harmful": {"total": 0, "blocked": 0},
+            "jailbreak": {"total": 0, "blocked": 0},
+            "prompt_injection": {"total": 0, "blocked": 0},
+            "contracts": {"total": 0, "blocked": 0}
+        },
+        "critical_failures": [],
+        "safety_metrics": {
+            "avg_safety_score": 0,
+            "min_safety_score": 1.0,
+            "max_safety_score": 0
+        },
+        "overall_pass_rate": 0,
+        "error": error_message
+    }
+
 def run_promptfoo_evaluation():
     """Run Promptfoo evaluation and parse results."""
     
@@ -43,36 +67,46 @@ def run_promptfoo_evaluation():
         
         if result.returncode != 0:
             print(f"Error running Promptfoo: {result.stderr}")
-            return None
-        
-        print("Promptfoo evaluation completed!")
-        
-        # Parse results from the output file
-        promptfoo_results_path = os.path.join(RESULTS_DIR, "promptfoo_results.json")
-        
-        if os.path.exists(promptfoo_results_path):
-            with open(promptfoo_results_path, 'r') as f:
-                raw_results = json.load(f)
-            
-            # Process and summarize results
-            summary = process_promptfoo_results(raw_results)
-            
-            # Save processed summary
-            summary_path = os.path.join(RESULTS_DIR, "promptfoo_summary.json")
-            with open(summary_path, 'w') as f:
-                json.dump(summary, f, indent=2)
-            
-            # Print summary
-            print_promptfoo_summary(summary)
-            
-            return summary
+            # Create empty summary on error
+            summary = create_empty_promptfoo_summary("Promptfoo command failed")
         else:
-            print("Warning: Promptfoo results file not found")
-            return None
+            print("Promptfoo evaluation completed!")
+            
+            # Parse results from the output file
+            promptfoo_results_path = os.path.join(RESULTS_DIR, "promptfoo_results.json")
+            
+            if os.path.exists(promptfoo_results_path):
+                try:
+                    with open(promptfoo_results_path, 'r') as f:
+                        raw_results = json.load(f)
+                    
+                    # Process and summarize results
+                    summary = process_promptfoo_results(raw_results)
+                except Exception as e:
+                    print(f"Error parsing promptfoo results: {e}")
+                    summary = create_empty_promptfoo_summary(f"Error parsing results: {str(e)}")
+            else:
+                print("Warning: Promptfoo results file not found")
+                summary = create_empty_promptfoo_summary("Results file not found")
+        
+        # Always save summary, even if empty
+        summary_path = os.path.join(RESULTS_DIR, "promptfoo_summary.json")
+        with open(summary_path, 'w') as f:
+            json.dump(summary, f, indent=2)
+        
+        # Print summary
+        print_promptfoo_summary(summary)
+        
+        return summary
             
     except Exception as e:
         print(f"Error running Promptfoo evaluation: {e}")
-        return None
+        # Create and save empty summary on exception
+        summary = create_empty_promptfoo_summary(f"Exception: {str(e)}")
+        summary_path = os.path.join(RESULTS_DIR, "promptfoo_summary.json")
+        with open(summary_path, 'w') as f:
+            json.dump(summary, f, indent=2)
+        return summary
 
 def process_promptfoo_results(raw_results):
     """Process raw Promptfoo results into summary."""

@@ -1,17 +1,21 @@
 # Meditation AI Alignment Sprint 
 
-A comprehensive demonstration of AI alignment techniques applied to mental health applications, showcasing RLHF, constitutional AI, and advanced red-teaming in a single night sprint.
+I built aligned prompts and fine-tunes for Waves AI using techniques similar to the ones demonstrated here. Forking this repo will allow you to build your own version of a custom evaluation suite for your AI tools!
+
+Claude's Input: This is a comprehensive demonstration of AI alignment techniques applied to mental health applications, showcasing RL Fine-tuning, a version of constitutional AI, and advanced red-teaming that can be applied to other developers' applications in a single night sprint.
 
 ## Overview
 
-This project demonstrates how to build a production-ready AI alignment pipeline for a meditation app, ensuring safety, helpfulness, and reliability when dealing with sensitive mental health topics. It implements the same techniques used by frontier AI labs, scaled down for educational purposes.
+This project demonstrates how to build a production-ready AI alignment pipeline for a meditation app, ensuring safety, helpfulness, and reliability when dealing with sensitive mental health topics. It implements some of the same techniques used by frontier AI labs, scaled down for educational purposes. I have tried my best (with Claude's help) to make each part as understandable as possible. 
+
+The prompts are obviously not what is used in the Waves production environment, but are meant to illustrate the effectiveness of the evaluation tools used. 
 
 ## Key Features
 
 - **Synthetic Preference Generation**: Creates realistic good/bad response pairs for training
-- **Constitutional AI**: Pattern-based safety system with automatic content rewriting
+- **Constitutional AI**: Pattern-based safety system with automatic content rewriting. The idea of constitutional AI is to use a set of principles to make judgements about the output. In production, this looks much more like using AI or LLMs-as-a-judge, but for the sake of simplicity (and to keep costs down), this version uses hard-coded alignment judgements
 - **Comprehensive Evaluation**: Multi-stage testing including red-teaming and edge cases
-- **Advanced Red-Teaming**: Integration with Promptfoo and Inspect AI for professional evaluation
+- **Advanced Red-Teaming**: Optional Integration with Promptfoo for professional evaluation
 - **O4-Mini RFT**: Optional reinforcement fine-tuning for enhanced safety
 - **Interactive Dashboard**: Real-time visualization of alignment metrics and improvements
 
@@ -19,7 +23,7 @@ This project demonstrates how to build a production-ready AI alignment pipeline 
 
 ### Prerequisites
 
-- Python 3.8+ (must use `python3` command)
+- Python 3.8+ (must use `python3` command if on Mac)
 - OpenAI API key
 - Optional: Node.js (for Promptfoo)
 
@@ -32,8 +36,6 @@ cd meditation-alignment
 
 # Install dependencies
 pip install -r requirements.txt
-# For core dependencies only (without Promptfoo/Inspect AI):
-# pip install -r requirements-core.txt
 
 # Set up API key
 python3 setup_config.py
@@ -51,7 +53,7 @@ python3 run_alignment_sprint.py --quick
 # Skip preference generation (use existing data)
 python3 run_alignment_sprint.py --skip-preferences
 
-# Include RFT (costs ~$25-50)
+# Include RFT (costs time and $$$)
 python3 run_alignment_sprint.py --include-rft
 ```
 

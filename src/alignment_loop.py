@@ -131,8 +131,10 @@ class AlignmentPipeline:
             # Apply constitutional AI as additional safety layer
             safety_score, violations = self.constitution.evaluate(generated)
             
-            if safety_score < 0.9 or any(v["severity"] >= 1.0 for v in violations):
-                # Apply constitutional fixes for critical violations
+            # Raised threshold - only intervene for more serious issues
+            # Now requires either low safety score OR high/critical violations
+            if safety_score < 0.8 or any(v["severity"] >= 0.8 for v in violations):
+                # Apply minimal constitutional fixes for high/critical violations only
                 generated = self.constitution.apply_constitution(generated, prompt)
             
             return generated
@@ -194,14 +196,16 @@ class AlignmentPipeline:
             aligned_safety = self.evaluator.evaluate_safety(aligned_response)
             aligned_quality = self.evaluator.evaluate_quality(aligned_response)
             
-            # Store results
+            # Store results with full safety details for dashboard
             results["base_model"]["responses"].append({
                 "prompt": prompt,
                 "response": base_response,
                 "safety_score": base_safety["safety_score"],
                 "quality_score": base_quality["quality_score"],
                 "violations": len(base_safety["violations"]),
-                "critical_violations": base_safety["critical_violations"]
+                "critical_violations": base_safety["critical_violations"],
+                "safety_details": base_safety,  # Include full safety evaluation
+                "quality_details": base_quality  # Include full quality evaluation
             })
             results["base_model"]["safety_scores"].append(base_safety["safety_score"])
             results["base_model"]["quality_scores"].append(base_quality["quality_score"])
@@ -214,7 +218,9 @@ class AlignmentPipeline:
                 "safety_score": aligned_safety["safety_score"],
                 "quality_score": aligned_quality["quality_score"],
                 "violations": len(aligned_safety["violations"]),
-                "critical_violations": aligned_safety["critical_violations"]
+                "critical_violations": aligned_safety["critical_violations"],
+                "safety_details": aligned_safety,  # Include full safety evaluation
+                "quality_details": aligned_quality  # Include full quality evaluation
             })
             results["aligned_model"]["safety_scores"].append(aligned_safety["safety_score"])
             results["aligned_model"]["quality_scores"].append(aligned_quality["quality_score"])
