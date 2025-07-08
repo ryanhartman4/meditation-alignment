@@ -17,6 +17,9 @@ import plotly.express as px
 from config import RESULTS_DIR
 from path_utils import safe_join_path, sanitize_filename
 
+# Constants
+MAX_KEYWORDS_TO_CHECK = 10  # Maximum number of keywords to check for semantic matching
+
 # Import safety patterns at top level to ensure they're always available
 try:
     from config import SAFETY_KEYWORDS, ADVERSARIAL_PATTERNS
@@ -42,10 +45,13 @@ def safe_get(data, *keys, default=None):
     result = data
     for key in keys:
         if isinstance(result, dict):
-            result = result.get(key, {})
+            if key in result:
+                result = result[key]
+            else:
+                return default
         else:
             return default
-    return result if result != {} else default
+    return result
 
 def escape_html(text):
     """Escape HTML special characters to prevent injection."""
@@ -208,7 +214,7 @@ def categorize_violation_semantic(violation_text: str, safety_keywords: Dict[str
         
         # Semantic matching for the category
         category_score = 0.0
-        for keyword in keywords[:10]:  # Check top 10 keywords
+        for keyword in keywords[:MAX_KEYWORDS_TO_CHECK]:  # Check top N keywords for performance
             score = semantic_similarity(violation_text, keyword)
             category_score = max(category_score, score)
         
@@ -319,7 +325,7 @@ def create_main_dashboard(data: dict):
     
     # Create figure with subplots
     fig = make_subplots(
-        rows=3, cols=3,
+        rows=4, cols=3,
         subplot_titles=(
             "<b>Safety Score Comparison</b>", 
             "<b>Violation Reduction</b>", 
@@ -327,16 +333,20 @@ def create_main_dashboard(data: dict):
             "<b>Quality vs Safety Trade-off</b>",
             "<b>Test Categories Performance</b>",
             "<b>Violation Categories</b>",
-            "<b>Adversarial Attack Results</b>",
+            "<b>Safety Trends</b>",
             "<b>Critical Test Results</b>",
-            "<b>Overall Alignment Progress</b>"
+            "<b>Overall Alignment Progress</b>",
+            "<b>Promptfoo Category Results</b>",
+            "<b>Promptfoo Test Results</b>",
+            "<b>Overall Safety Summary</b>"
         ),
         specs=[
             [{"type": "bar"}, {"type": "bar"}, {"type": "bar"}],
             [{"type": "scatter"}, {"type": "bar"}, {"type": "bar"}],
-            [{"type": "bar"}, {"type": "bar"}, {"type": "indicator"}]
+            [{"type": "bar"}, {"type": "bar"}, {"type": "indicator"}],
+            [{"type": "bar"}, {"type": "bar"}, {"type": "bar"}]
         ],
-        vertical_spacing=0.15,
+        vertical_spacing=0.12,
         horizontal_spacing=0.12
     )
     
@@ -369,12 +379,12 @@ def create_main_dashboard(data: dict):
     if "comparison" in data and "summary" in data["comparison"]:
         violation_types = ["Total Violations", "Critical Violations"]
         base_violations = [
-            safe_get(summary, "base_model", "total_violations", default=0),
-            safe_get(summary, "base_model", "critical_violations", default=0)
+            safe_get(data, "comparison", "summary", "base_model", "total_violations", default=0),
+            safe_get(data, "comparison", "summary", "base_model", "critical_violations", default=0)
         ]
         aligned_violations = [
-            safe_get(summary, "aligned_model", "total_violations", default=0),
-            safe_get(summary, "aligned_model", "critical_violations", default=0)
+            safe_get(data, "comparison", "summary", "aligned_model", "total_violations", default=0),
+            safe_get(data, "comparison", "summary", "aligned_model", "critical_violations", default=0)
         ]
         
         fig.add_trace(
@@ -509,21 +519,24 @@ def create_main_dashboard(data: dict):
         violations_found = False
         
         # Get all violations from aligned model
-        if "responses" in data["comparison"]["aligned_model"]:
-            for response_data in data["comparison"]["aligned_model"]["responses"]:
-                if isinstance(response_data, dict) and "safety_details" in response_data:
-                    violations = response_data["safety_details"].get("violations", [])
-                    if violations:
-                        violations_found = True
-                    for violation in violations:
-                        # Categorize the violation using semantic matching
-                        violation_text = violation.get("text", violation.get("matched_text", ""))
-                        category = categorize_violation_semantic(violation_text, SAFETY_KEYWORDS)
-                        
-                        if category:
-                            category_counts[category] += 1
-                        else:
-                            uncategorized_count += 1
+        aligned_model_data = safe_get(data, "comparison", "aligned_model", default={})
+        if isinstance(aligned_model_data, dict) and "responses" in aligned_model_data:
+            responses = aligned_model_data["responses"]
+            if isinstance(responses, list):
+                for response_data in responses:
+                    if isinstance(response_data, dict) and "safety_details" in response_data:
+                        violations = safe_get(response_data, "safety_details", "violations", default=[])
+                        if violations:
+                            violations_found = True
+                        for violation in violations if isinstance(violations, list) else []:
+                            # Categorize the violation using semantic matching
+                            violation_text = violation.get("text", violation.get("matched_text", ""))
+                            category = categorize_violation_semantic(violation_text, SAFETY_KEYWORDS)
+                            
+                            if category:
+                                category_counts[category] += 1
+                            else:
+                                uncategorized_count += 1
         
         # Debug message if no violations found
         if not violations_found:
@@ -545,105 +558,29 @@ def create_main_dashboard(data: dict):
             row=2, col=3
         )
     
-    # 7. Adversarial Attack Heatmap (Enhanced with Fuzzy Matching)
-    if "red_team" in data:
-        if "all_results" not in data["red_team"]:
-            print("Debug: Red team data exists but missing 'all_results' field")
-            print(f"Debug: Available red_team keys: {list(data['red_team'].keys())}")
-        else:
-            print(f"Debug: Found {len(data['red_team']['all_results'])} red team results for adversarial attack analysis")
-    
-    if "red_team" in data and "all_results" in data["red_team"]:
+    # 7. Safety Trends - Model Safety Comparison
+    if "comparison" in data and "summary" in data["comparison"]:
+        # Show safety improvement trends
+        models = ["Base Model", "Aligned Model"]
+        safety_metrics = [
+            safe_get(data, "comparison", "summary", "base_model", "avg_safety", default=0) * 100,
+            safe_get(data, "comparison", "summary", "aligned_model", "avg_safety", default=0) * 100
+        ]
         
-        # Analyze attack success rates by technique with fuzzy matching
-        attack_results = {}
-        unmatched_attacks = []  # Track attacks that don't match any pattern for future analysis
-        attacks_found = False
-        
-        # Initialize categories
-        for attack_type in ADVERSARIAL_PATTERNS.keys():
-            attack_results[attack_type] = {
-                "attempts": 0, 
-                "successes": 0,
-                "confidence_scores": []
-            }
-        
-        # Analyze all red team results
-        for result in data["red_team"]["all_results"]:
-            if isinstance(result, dict):
-                prompt = result.get("prompt", "")
-                passed = result.get("passed", True)
-                
-                if prompt:  # Only process if prompt exists
-                    attacks_found = True
-                
-                # Find best matching attack pattern using fuzzy matching
-                best_match_type = None
-                best_match_score = 0.0
-                
-                for attack_type, patterns in ADVERSARIAL_PATTERNS.items():
-                    matched, _, score = fuzzy_match_pattern(prompt, patterns)  # pattern not needed here
-                    if matched and score > best_match_score:
-                        best_match_score = score
-                        best_match_type = attack_type
-                
-                if best_match_type:
-                    attack_results[best_match_type]["attempts"] += 1
-                    attack_results[best_match_type]["confidence_scores"].append(best_match_score)
-                    if not passed:  # Attack succeeded if test failed
-                        attack_results[best_match_type]["successes"] += 1
-                else:
-                    unmatched_attacks.append(prompt[:50] + "...")
-        
-        # Create heatmap data
-        attack_types = []
-        success_rates = []
-        attempt_counts = []
-        avg_confidence_scores = []
-        
-        for attack_type, results in attack_results.items():
-            if results["attempts"] > 0:
-                attack_types.append(attack_type.replace("_", " ").title())
-                success_rate = (results["successes"] / results["attempts"]) * 100
-                success_rates.append(success_rate)
-                attempt_counts.append(results["attempts"])
-                
-                # Calculate average confidence score
-                if results["confidence_scores"]:
-                    avg_confidence = sum(results["confidence_scores"]) / len(results["confidence_scores"])
-                else:
-                    avg_confidence = 1.0  # Default to 100% confidence if no scores
-                avg_confidence_scores.append(avg_confidence)
-        
-        # Create heatmap-style bar chart
         fig.add_trace(
             go.Bar(
-                x=attack_types,
-                y=success_rates,
+                x=models,
+                y=safety_metrics,
                 marker=dict(
-                    color=success_rates,
-                    colorscale='RdYlGn_r',  # Red for high success (bad), green for low
-                    showscale=True,
-                    colorbar=dict(title="Attack<br>Success %")
+                    color=[colors['neutral'], colors['success']]
                 ),
-                text=[f"{rate:.0f}%<br>({count} tests)<br>Conf: {conf:.0%}" 
-                      for rate, count, conf in zip(success_rates, attempt_counts, avg_confidence_scores)],
+                text=[f"{score:.1f}%" for score in safety_metrics],
                 textposition="auto",
-                name="Attack Success Rate"
+                name="Safety Score Trends",
+                hovertemplate='<b>%{x}</b><br>Safety Score: %{y:.1f}%<extra></extra>'
             ),
             row=3, col=1
         )
-        
-        # Debug messages
-        if not attacks_found:
-            print("Debug: No prompts found in red team results for adversarial attack analysis")
-        
-        if not attack_types:
-            print("Debug: No adversarial attacks matched any patterns")
-        
-        # Log unmatched attacks for future pattern improvement
-        if unmatched_attacks:
-            print(f"⚠️  Found {len(unmatched_attacks)} unmatched attack patterns (consider adding to ADVERSARIAL_PATTERNS)")
     
     # 8. Critical Test Results
     if "red_team" in data and "all_results" in data["red_team"]:
@@ -709,6 +646,77 @@ def create_main_dashboard(data: dict):
             row=3, col=3
         )
     
+    # 10. Promptfoo Category Results
+    if "promptfoo" in data and "by_category" in data["promptfoo"]:
+        categories = []
+        pass_rates = []
+        
+        for category, cat_data in data["promptfoo"]["by_category"].items():
+            categories.append(category.replace('_', ' ').title())
+            pass_rates.append(cat_data.get("pass_rate", 0) * 100)
+        
+        if categories:  # Only add if there's data
+            fig.add_trace(
+                go.Bar(
+                    x=categories,
+                    y=pass_rates,
+                    marker=dict(
+                        color=pass_rates,
+                        colorscale='RdYlGn',
+                        cmin=0,
+                        cmax=100,
+                        showscale=False
+                    ),
+                    text=[f"{rate:.1f}%" for rate in pass_rates],
+                    textposition="auto",
+                    name="Promptfoo Pass Rates"
+                ),
+                row=4, col=1
+            )
+    
+    # 11. Promptfoo Test Results
+    if "promptfoo" in data:
+        # Show general promptfoo test results instead of plugin-specific data
+        total_tests = data["promptfoo"].get("total_tests", 0)
+        passed = data["promptfoo"].get("passed", 0)
+        failed = data["promptfoo"].get("failed", 0)
+        
+        if total_tests > 0:
+            fig.add_trace(
+                go.Bar(
+                    x=["Passed", "Failed"],
+                    y=[passed, failed],
+                    marker_color=[colors['success'], colors['danger']],
+                    text=[passed, failed],
+                    textposition="auto",
+                    name="Promptfoo Tests"
+                ),
+                row=4, col=2
+            )
+    
+    # 12. Overall Safety Summary
+    if "red_team" in data and "promptfoo" in data:
+        # Show overall safety metrics from both evaluations
+        test_sources = ["Core Red Team", "Promptfoo Tests"]
+        pass_rates = [
+            safe_get(data, "red_team", "pass_rate", default=0) * 100,
+            safe_get(data, "promptfoo", "overall_pass_rate", default=0) * 100
+        ]
+        
+        fig.add_trace(
+            go.Bar(
+                x=test_sources,
+                y=pass_rates,
+                marker=dict(
+                    color=[colors['primary'], colors['secondary']]
+                ),
+                text=[f"{rate:.1f}%" for rate in pass_rates],
+                textposition="auto",
+                name="Test Pass Rates"
+            ),
+            row=4, col=3
+        )
+    
     # Update layout with clean, professional aesthetics
     fig.update_layout(
         title={
@@ -719,7 +727,7 @@ def create_main_dashboard(data: dict):
             'y': 0.98
         },
         showlegend=False,
-        height=1400,
+        height=1800,
         margin=dict(t=120, b=60, l=60, r=60),
         paper_bgcolor=colors['background'],
         plot_bgcolor=colors['background'],
@@ -744,6 +752,16 @@ def create_main_dashboard(data: dict):
     
     fig.update_xaxes(title_text="Safety Score", row=2, col=1)
     fig.update_yaxes(title_text="Quality Score", row=2, col=1)
+    
+    # Add axis labels for promptfoo visualizations
+    fig.update_xaxes(title_text="Test Category", row=4, col=1)
+    fig.update_yaxes(title_text="Pass Rate (%)", row=4, col=1)
+    
+    fig.update_xaxes(title_text="Test Result", row=4, col=2)
+    fig.update_yaxes(title_text="Count", row=4, col=2)
+    
+    fig.update_xaxes(title_text="Test Source", row=4, col=3)
+    fig.update_yaxes(title_text="Pass Rate (%)", row=4, col=3)
     
     return fig
 
@@ -1031,6 +1049,75 @@ def create_detailed_report(data: dict, output_path: str):
             
             for failure in data["red_team"]["critical_failures"]:
                 html_content += f"<li><strong>{escape_html(failure['test_id'])}</strong>: {escape_html(failure['prompt'][:100])}...</li>"
+            
+            html_content += """
+                    </ul>
+                </div>
+            """
+        
+        html_content += "</div>"
+    
+    # Promptfoo Red Team Results
+    if "promptfoo" in data:
+        html_content += """
+            <div id="promptfoo" class="section">
+                <h2>Promptfoo Safety Evaluation Results</h2>
+                <p>Additional safety testing using Promptfoo framework to validate alignment effectiveness.</p>
+        """
+        
+        # Overall Promptfoo Results
+        if "total_tests" in data["promptfoo"]:
+            pass_rate = safe_get(data, "promptfoo", "overall_pass_rate", default=0) * 100
+            html_content += f"""
+                <div style="margin: 20px 0;">
+                    <strong>Overall:</strong> {data["promptfoo"]["passed"]} of {data["promptfoo"]["total_tests"]} tests passed 
+                    ({pass_rate:.1f}%)
+                </div>
+            """
+        
+        # Results by Category
+        if "by_category" in data["promptfoo"] and data["promptfoo"]["by_category"]:
+            html_content += """
+                <h3>Results by Test Category</h3>
+                <table>
+                    <tr>
+                        <th>Category</th>
+                        <th>Total Tests</th>
+                        <th>Passed</th>
+                        <th>Pass Rate</th>
+                    </tr>
+            """
+            
+            for category, cat_data in data["promptfoo"]["by_category"].items():
+                cat_pass_rate = cat_data.get("pass_rate", 0) * 100
+                row_class = "success" if cat_pass_rate >= 95 else "warning" if cat_pass_rate >= 80 else "regression"
+                
+                html_content += f"""
+                    <tr>
+                        <td>{category.replace('_', ' ').title()}</td>
+                        <td>{cat_data['total']}</td>
+                        <td>{cat_data['passed']}</td>
+                        <td class="{row_class}">{cat_pass_rate:.1f}%</td>
+                    </tr>
+                """
+            
+            html_content += "</table>"
+        
+        
+        # Critical Failures from Promptfoo
+        if "critical_failures" in data["promptfoo"] and data["promptfoo"]["critical_failures"]:
+            html_content += f"""
+                <h3>Critical Promptfoo Test Failures</h3>
+                <div class="warning">
+                    <p>The following critical tests failed in Promptfoo evaluation:</p>
+                    <ul>
+            """
+            
+            for failure in data["promptfoo"]["critical_failures"][:5]:  # Show max 5
+                html_content += f"<li><strong>Prompt:</strong> {escape_html(failure.get('prompt', 'N/A')[:100])}...<br><strong>Reason:</strong> {escape_html(failure.get('reason', 'N/A'))}</li>"
+            
+            if len(data["promptfoo"]["critical_failures"]) > 5:
+                html_content += f"<li><em>...and {len(data['promptfoo']['critical_failures']) - 5} more failures</em></li>"
             
             html_content += """
                     </ul>
@@ -1425,6 +1512,7 @@ def create_unified_report(data: dict, output_path: str):
                     <li><a href="#visualizations">Visualizations</a></li>
                     <li><a href="#model-comparison">Model Comparison</a></li>
                     <li><a href="#red-team">Red Team</a></li>
+                    <li><a href="#promptfoo">Promptfoo</a></li>
                     <li><a href="#recommendations">Recommendations</a></li>
                     <li><a href="#" onclick="exportReport()">Export</a></li>
                 </ul>
@@ -1503,7 +1591,10 @@ def create_unified_report(data: dict, output_path: str):
     html_content += "</div>"
     
     # Critical Failure Alerts
-    if "red_team" in data and data["red_team"].get("critical_failures"):
+    has_red_team_failures = "red_team" in data and data["red_team"].get("critical_failures")
+    has_promptfoo_failures = "promptfoo" in data and data["promptfoo"].get("critical_failures")
+    
+    if has_red_team_failures or has_promptfoo_failures:
         html_content += """
         <div class="section" style="border-left: 5px solid #ff4757; background-color: #ffe6e6;">
             <h2 style="color: #ff4757;">⚠️ CRITICAL SAFETY ALERTS</h2>
@@ -1513,33 +1604,69 @@ def create_unified_report(data: dict, output_path: str):
             </div>
         """
         
-        # Group critical failures by category
-        failures_by_category = {}
-        for failure in data["red_team"]["critical_failures"]:
-            category = failure.get("category", "unknown")
-            if category not in failures_by_category:
-                failures_by_category[category] = []
-            failures_by_category[category].append(failure)
+        # Core Red Team Critical Failures
+        if has_red_team_failures:
+            html_content += """
+            <h3 style="color: #cc0000;">Core Red Team Critical Failures</h3>
+            """
+            
+            # Group critical failures by category
+            failures_by_category = {}
+            for failure in data["red_team"]["critical_failures"]:
+                category = failure.get("category", "unknown")
+                if category not in failures_by_category:
+                    failures_by_category[category] = []
+                failures_by_category[category].append(failure)
+            
+            for category, failures in failures_by_category.items():
+                html_content += f"""
+                <h4 style="color: #cc0000;">{category.replace('_', ' ').title()} ({len(failures)} failures)</h4>
+                <table style="background-color: white;">
+                    <tr>
+                        <th>Test ID</th>
+                        <th>Prompt</th>
+                        <th>Safety Score</th>
+                        <th>Violations</th>
+                    </tr>
+                """
+                
+                for failure in failures:
+                    html_content += f"""
+                    <tr>
+                        <td><code>{escape_html(failure['test_id'])}</code></td>
+                        <td>{escape_html(failure['prompt'][:80])}...</td>
+                        <td style="color: #ff4757; font-weight: bold;">{failure.get('safety_score', 0):.3f}</td>
+                        <td>{escape_html(str(failure.get('violations', 'N/A')))}</td>
+                    </tr>
+                    """
+                
+                html_content += "</table>"
         
-        for category, failures in failures_by_category.items():
-            html_content += f"""
-            <h3 style="color: #cc0000;">{category.replace('_', ' ').title()} ({len(failures)} failures)</h3>
+        # Promptfoo Critical Failures
+        if has_promptfoo_failures:
+            html_content += """
+            <h3 style="color: #cc0000;">Promptfoo Critical Test Failures</h3>
             <table style="background-color: white;">
                 <tr>
-                    <th>Test ID</th>
                     <th>Prompt</th>
-                    <th>Safety Score</th>
-                    <th>Violations</th>
+                    <th>Reason</th>
                 </tr>
             """
             
-            for failure in failures:
+            for failure in data["promptfoo"]["critical_failures"][:10]:  # Show max 10
                 html_content += f"""
                 <tr>
-                    <td><code>{escape_html(failure['test_id'])}</code></td>
-                    <td>{escape_html(failure['prompt'][:80])}...</td>
-                    <td style="color: #ff4757; font-weight: bold;">{failure.get('safety_score', 0):.3f}</td>
-                    <td>{escape_html(str(failure.get('violations', 'N/A')))}</td>
+                    <td>{escape_html(failure.get('prompt', 'N/A')[:100])}...</td>
+                    <td style="color: #ff4757;">{escape_html(failure.get('reason', 'N/A'))}</td>
+                </tr>
+                """
+            
+            if len(data["promptfoo"]["critical_failures"]) > 10:
+                html_content += f"""
+                <tr>
+                    <td colspan="2" style="text-align: center; font-style: italic;">
+                        ...and {len(data["promptfoo"]["critical_failures"]) - 10} more critical failures
+                    </td>
                 </tr>
                 """
             

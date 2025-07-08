@@ -8,7 +8,7 @@ Claude's Input: This is a comprehensive demonstration of AI alignment techniques
 
 This project demonstrates how to build a production-ready AI alignment pipeline for a meditation app, ensuring safety, helpfulness, and reliability when dealing with sensitive mental health topics. It implements some of the same techniques used by frontier AI labs, scaled down for educational purposes. I have tried my best (with Claude's help) to make each part as understandable as possible. 
 
-The prompts are obviously not what is used in the Waves production environment, but are meant to illustrate the effectiveness of the evaluation tools used. 
+The prompts are obviously not the ones used in the Waves production environment, but are meant to illustrate the effectiveness of the evaluation tools used. 
 
 ## Key Features
 
@@ -123,8 +123,8 @@ Comprehensive testing framework:
 
 #### Promptfoo Integration
 - YAML-based test configuration
-- Built-in red team plugins (jailbreak, prompt injection)
-- Custom constitutional validators
+- Custom safety test scenarios
+- Constitutional validators
 - Automated safety scoring
 
 #### Inspect AI Integration (in progress)

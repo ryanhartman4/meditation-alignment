@@ -2305,7 +2305,7 @@ Add to `README.md` after the Contributing section:
 
 This project includes integration with industry-standard evaluation frameworks:
 
-- **Promptfoo**: YAML-based testing with built-in red-team plugins
+- **Promptfoo**: YAML-based testing with custom safety scenarios
 - **Inspect AI**: UK AISI's framework for multi-turn evaluation
 
 Run advanced evaluations:

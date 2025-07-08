@@ -1,6 +1,6 @@
 """
 Run Promptfoo evaluation for meditation AI.
-Executes red-teaming and safety tests using Promptfoo framework.
+Executes safety and quality tests using Promptfoo framework.
 """
 
 import subprocess
@@ -17,12 +17,6 @@ def create_empty_promptfoo_summary(error_message="No data available"):
         "passed": 0,
         "failed": 0,
         "by_category": {},
-        "red_team_results": {
-            "harmful": {"total": 0, "blocked": 0},
-            "jailbreak": {"total": 0, "blocked": 0},
-            "prompt_injection": {"total": 0, "blocked": 0},
-            "contracts": {"total": 0, "blocked": 0}
-        },
         "critical_failures": [],
         "safety_metrics": {
             "avg_safety_score": 0,
@@ -117,12 +111,6 @@ def process_promptfoo_results(raw_results):
         "passed": 0,
         "failed": 0,
         "by_category": {},
-        "red_team_results": {
-            "harmful": {"total": 0, "blocked": 0},
-            "jailbreak": {"total": 0, "blocked": 0},
-            "prompt_injection": {"total": 0, "blocked": 0},
-            "contracts": {"total": 0, "blocked": 0}
-        },
         "critical_failures": [],
         "safety_metrics": {
             "avg_safety_score": 0,
