@@ -2,13 +2,19 @@
 
 I built aligned prompts and fine-tunes for Waves AI using techniques similar to the ones demonstrated here. Forking this repo will allow you to build your own version of a custom evaluation suite for your AI tools!
 
-Claude's Input: This is a comprehensive demonstration of AI alignment techniques applied to mental health applications, showcasing RL Fine-tuning, a version of constitutional AI, and advanced red-teaming that can be applied to other developers' applications in a single night sprint.
+I also had Claude review it, here's what it had to say: This is a comprehensive demonstration of AI alignment techniques applied to mental health applications, showcasing RL Fine-tuning, a version of constitutional AI, and advanced red-teaming that can be applied to other developers' applications in a single night sprint.
 
 ## Overview
 
 This project demonstrates how to build a production-ready AI alignment pipeline for a meditation app, ensuring safety, helpfulness, and reliability when dealing with sensitive mental health topics. It implements some of the same techniques used by frontier AI labs, scaled down for educational purposes. I have tried my best (with Claude's help) to make each part as understandable as possible. 
 
-The prompts are obviously not the ones used in the Waves production environment, but are meant to illustrate the effectiveness of the evaluation tools used. 
+The prompts are obviously not the ones used in the Waves production environment, but are meant to illustrate the effectiveness of the evaluation tools used.
+
+## Cost Estimation
+
+- **Basic Sprint**: ~$5-10 in OpenAI API costs (15-30 minutes)
+- **With RFT Fine-tuning**: Additional ~$25-50 (GPT-4o-mini fine-tuning)
+- **Cost Control**: Built-in budget limits with automatic stopping at $10 (configurable) 
 
 ## Key Features
 
@@ -16,7 +22,7 @@ The prompts are obviously not the ones used in the Waves production environment,
 - **Constitutional AI**: Pattern-based safety system with automatic content rewriting. The idea of constitutional AI is to use a set of principles to make judgements about the output. In production, this looks much more like using AI or LLMs-as-a-judge, but for the sake of simplicity (and to keep costs down), this version uses hard-coded alignment judgements
 - **Comprehensive Evaluation**: Multi-stage testing including red-teaming and edge cases
 - **Advanced Red-Teaming**: Optional Integration with Promptfoo for professional evaluation
-- **O4-Mini RFT**: Optional reinforcement fine-tuning for enhanced safety
+- **o4-mini RFT**: Optional reinforcement fine-tuning for enhanced safety
 - **Interactive Dashboard**: Real-time visualization of alignment metrics and improvements
 
 ## Quick Start
@@ -35,16 +41,19 @@ git clone https://github.com/ryanhartman4/meditation-alignment.git
 cd meditation-alignment
 
 # Install dependencies
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 
 # Set up API key
 python3 setup_config.py
+
+# Verify configuration
+python3 src/config.py  # Should print "Configuration verified!"
 ```
 
 ### Run the Alignment Sprint
 
 ```bash
-# Full sprint (15-30 minutes)
+# Full sprint (15-30 minutes, ~$5-10 in API costs)
 python3 run_alignment_sprint.py
 
 # Quick mode (skip optional stages)
@@ -53,8 +62,22 @@ python3 run_alignment_sprint.py --quick
 # Skip preference generation (use existing data)
 python3 run_alignment_sprint.py --skip-preferences
 
-# Include RFT (costs time and $$$)
+# Include RFT (expensive, adds ~$25-50)
 python3 run_alignment_sprint.py --include-rft
+```
+
+### Testing & Development
+
+```bash
+# Test individual components
+python3 src/generate_preferences.py  # Test preference generation
+python3 src/constitutional_ai.py     # Test safety system
+python3 src/evaluation.py           # Test evaluation framework
+
+# Linting and type checking
+ruff check src/
+ruff check --fix src/
+mypy src/  # If mypy is installed
 ```
 
 ## Project Structure
@@ -73,10 +96,12 @@ meditation-alignment/
 │   ├── inspect_eval.py            # Inspect AI integration
 │   ├── path_utils.py              # Path and file utilities
 │   ├── prepare_rft_data.py        # RFT data preparation
-│   ├── promptfoo_config.yaml      # Promptfoo configuration
+│   ├── promptfoo_config.yaml      # Main Promptfoo configuration
+│   ├── promptfoo_simple_config.yaml # Simplified Promptfoo config
+│   ├── promptfoo_test_config.yaml   # Test Promptfoo configuration
 │   ├── promptfoo_provider.py      # Promptfoo integration bridge
 │   ├── rft_grader.py              # RFT preference grading
-│   ├── rft_training.py            # GPT-4o-mini fine-tuning pipeline
+│   ├── rft_training.py            # o4-mini fine-tuning pipeline
 │   └── run_promptfoo_eval.py      # Promptfoo evaluation runner
 ├── data/                          # Data files and configurations
 │   ├── meditation_constitution.json # Constitutional AI safety rules
@@ -86,66 +111,111 @@ meditation-alignment/
 ├── prompts/                       # Prompt templates
 │   └── meditation_prompt.txt      # Base meditation guidance prompt
 ├── results/                       # Evaluation outputs and dashboards
-│   ├── latest/                    # Latest run results (symlink)
-│   └── run_YYYYMMDD_HHMMSS/      # Timestamped evaluation runs
+│   ├── latest/                    # Latest run results
+│   │   ├── model_comparison.json  # Model performance comparison
+│   │   ├── promptfoo_summary.json # Promptfoo evaluation summary
+│   │   └── red_team_results.json  # Red team test results
+│   ├── run_YYYYMMDD_HHMMSS/      # Timestamped evaluation runs
+│   ├── alignment_dashboard.html   # Interactive results dashboard
+│   └── alignment_summary.json     # Overall alignment metrics
+├── blog/                          # Blog posts and articles
+│   └── alignment_blog_post.md     # Technical blog post about the project
 ├── run_alignment_sprint.py        # Main runner script
 ├── setup_config.py               # Configuration setup utility
 ├── requirements.txt               # Python dependencies (full)
 ├── requirements-core.txt          # Core dependencies only
+├── CLAUDE.md                      # Claude Code guidelines
 ├── SETUP.md                       # Setup and configuration guide
+├── INTEGRATION_GUIDE.md           # Integration documentation
+├── Project-outline.md             # Project structure outline
 └── README.md                      # This file
 ```
 
 ## Alignment Pipeline
 
-### 1. Preference Generation
-Generates synthetic preference pairs demonstrating safety violations:
-- Medical advice ("this will cure your anxiety")
-- Crisis mishandling ("just breathe through suicidal thoughts")
-- Non-inclusive language ("stand up and walk")
-- Boundary violations ("I love you")
+The sprint orchestrates these stages through `run_alignment_sprint.py`:
 
-### 2. Constitutional AI
-Implements pattern-based safety with automatic rewriting:
-- Detects violations using regex patterns
-- Calculates safety scores
-- Rewrites unsafe content while preserving helpfulness
-- Includes crisis resources (988 lifeline)
+### Stage 1: Core Alignment Evaluation (Required)
+Runs the main alignment pipeline (`alignment_loop.py`) with three sub-stages:
 
-### 3. Evaluation Suite
-Comprehensive testing framework:
-- Safety metrics (violation tracking, crisis handling)
-- Quality metrics (structure, calming language, readability)
-- Red team test suite (15+ critical scenarios)
-- Edge case handling
+**1. Model Comparison:**
+   - **Base Model**: Uses production prompt without safety enhancements
+   - **Aligned Model**: Production prompt + constitutional AI safety layer
+   - Tests both models on identical scenarios from `meditation_test_cases.json`
+   - Applies constitutional AI to aligned model responses:
+     - Pattern-based safety detection using `meditation_constitution.json`
+     - Hierarchical severity levels (critical/high/medium/low)
+     - Automatic content rewriting while preserving helpfulness
+     - Crisis resource injection (988 lifeline)
 
-### 4. Advanced Red-Teaming
+**2. Red Team Evaluation:**
+   - Runs comprehensive red team test suite on aligned model
+   - Tests 15+ critical safety scenarios
+   - Evaluates crisis handling, medical safety, and boundary violations
+   - Parallel execution for faster results
 
-#### Promptfoo Integration
+**3. Edge Case Testing:**
+   - Tests dangerous edge cases (e.g., "meditate while driving")
+   - Ensures appropriate safety redirects
+   - Validates crisis response handling
+
+### Stage 2: Dashboard Creation (Required)
+Generates interactive HTML dashboard:
+- Model performance comparison charts
+- Safety improvement metrics
+- Red team test results
+- Violation breakdown by category
+- Overall production readiness assessment
+
+### Stage 3: Advanced Red-Teaming (Optional)
+Interactive prompt for Promptfoo evaluation:
 - YAML-based test configuration
-- Custom safety test scenarios
-- Constitutional validators
-- Automated safety scoring
+- Custom safety validators in JavaScript
+- Extended test scenarios beyond core red team
+- Results integrated into dashboard
 
-#### Inspect AI Integration (in progress)
-- Multi-turn conversation testing
-- Consistency across dialogue
-- Memory and context handling
-- UK AISI evaluation framework
+To run manually:
+```bash
+cd src
+npx promptfoo@latest eval --no-cache
+```
 
-### 5. O4-Mini RFT (Optional) (in progress)
-- Automated preference grading
-- Data preparation for OpenAI fine-tuning
-- Training orchestration
-- Post-training evaluation
+### Stage 4: o4-mini RFT (Optional)
+When using `--include-rft` flag:
+
+1. **Preference Data Check**: 
+   - Checks if `data/preferences_synthetic.jsonl` exists
+   - If missing, prompts for preference generation:
+     - Warns about synthetic unsafe content creation
+     - Generates preference pairs with safety violations
+     - Topics: medical claims, crisis handling, physical assumptions, boundaries
+     - Uses `generate_preferences.py` to create training data
+
+2. **Interactive Consent**: 
+   - Warns about costs (~$25-50)
+   - Requires explicit user confirmation
+
+3. **RFT Pipeline** (if preferences exist):
+   - Grades preferences using GPT-4 (`rft_grader.py`)
+   - Prepares OpenAI fine-tuning format (`prepare_rft_data.py`)
+   - Manages fine-tuning job (`rft_training.py`)
+   - Evaluates base vs aligned vs fine-tuned models
+
+### Final Output
+Sprint completes with:
+- Safety improvement percentage
+- Red team pass rate
+- Production readiness verdict 
+- Total runtime and cost summary
+- Paths to dashboard and detailed results
 
 ## Results
 
 The alignment pipeline typically achieves:
-- **94%** improvement in crisis response accuracy
-- **87%** reduction in harmful medical advice
-- **4.5/5** maintained quality score
-- **98%+** pass rate on critical safety tests
+- Improvement in crisis response accuracy
+- Reduction in harmful medical advice
+- Approximately maintained quality score
+- High pass rates on critical safety tests
 
 View detailed results in the interactive dashboard after running the sprint.
 
@@ -230,14 +300,10 @@ If you use this project in your research, please cite:
 }
 ```
 
-## License
-
-MIT License - see LICENSE file for details.
-
 ## Acknowledgments
 
-- OpenAI for GPT-4 and fine-tuning APIs
-- Anthropic for constitutional AI concepts and RFT Alignment Ideas
+- OpenAI for GPT-4o, o4-mini, and fine-tuning APIs
+- Anthropic for constitutional AI concepts, RFT Alignment Ideas, and claude code
 - Promptfoo team for evaluation framework
 - UK AISI for Inspect AI
 - The AI safety community for red-teaming best practices
