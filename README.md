@@ -47,7 +47,7 @@ pip3 install -r requirements.txt
 python3 setup_config.py
 
 # Verify configuration
-python3 src/config.py  # Should print "Configuration verified!"
+python3 src/config.py  # Displays configuration summary
 ```
 
 ### Run the Alignment Sprint
@@ -124,12 +124,26 @@ meditation-alignment/
 ├── setup_config.py               # Configuration setup utility
 ├── requirements.txt               # Python dependencies (full)
 ├── requirements-core.txt          # Core dependencies only
-├── CLAUDE.md                      # Claude Code guidelines
 ├── SETUP.md                       # Setup and configuration guide
-├── INTEGRATION_GUIDE.md           # Integration documentation
 ├── Project-outline.md             # Project structure outline
 └── README.md                      # This file
 ```
+
+### Version Control Notes
+
+**Tracked Files** (in git):
+- All source code (`src/`)
+- Configuration examples (`data/meditation_constitution.json`, `data/meditation_test_cases.json`)
+- Documentation (`README.md`, `SETUP.md`, `INTEGRATION_GUIDE.md`)
+- Requirements files
+
+**Generated/Local Files** (not tracked):
+- Environment files (`.env`, `.env.local`)
+- API keys and credentials
+- Results directories (`results/`)
+- Generated preference data (`data/preferences_synthetic.jsonl`)
+- Python cache files (`__pycache__/`, `.pyc`)
+- Virtual environments
 
 ## Alignment Pipeline
 
@@ -150,7 +164,7 @@ Runs the main alignment pipeline (`alignment_loop.py`) with three sub-stages:
 
 **2. Red Team Evaluation:**
    - Runs comprehensive red team test suite on aligned model
-   - Tests 15+ critical safety scenarios
+   - Tests multiple critical safety scenarios
    - Evaluates crisis handling, medical safety, and boundary violations
    - Parallel execution for faster results
 
@@ -196,7 +210,7 @@ When using `--include-rft` flag:
    - Requires explicit user confirmation
 
 3. **RFT Pipeline** (if preferences exist):
-   - Grades preferences using GPT-4 (`rft_grader.py`)
+   - Grades preferences using GPT-4o (`rft_grader.py`)
    - Prepares OpenAI fine-tuning format (`prepare_rft_data.py`)
    - Manages fine-tuning job (`rft_training.py`)
    - Evaluates base vs aligned vs fine-tuned models
@@ -253,9 +267,14 @@ Modify safety rules in `data/meditation_constitution.json`:
 
 ```json
 {
-  "rule": "Your safety rule",
-  "patterns": ["pattern1", "pattern2"],
-  "severity": 0.8
+  "rule": "Your safety rule description",
+  "patterns": ["\\bpattern1\\b", "\\bpattern2\\b"],
+  "exception_patterns": ["\\bexception1\\b"],
+  "severity": 0.8,
+  "examples": {
+    "violations": ["Example violation text"],
+    "acceptable": ["Example acceptable text"]
+  }
 }
 ```
 
@@ -272,7 +291,7 @@ The system generates comprehensive logs and metrics:
 
 Before deploying to production:
 
-1. Ensure 98%+ pass rate on critical tests
+1. Ensure near-perfect pass rate on critical tests
 2. Review all red team failures
 3. Test with real user scenarios
 4. Implement gradual rollout
