@@ -123,10 +123,12 @@ def run_alignment_sprint(skip_rft=True, quick_mode=False):
                 results = run_promptfoo_evaluation()
                 sprint_results["stages"]["promptfoo"] = results
                 return results
-            
+
             run_stage("Promptfoo Red-Teaming", stage3, required=False)
-    except:
-        print("Promptfoo not available, skipping...")
+    except (ImportError, ModuleNotFoundError) as e:
+        print(f"Promptfoo not available ({e}), skipping...")
+    except EOFError:
+        print("Non-interactive mode detected, skipping Promptfoo...")
     
     # Stage 4: GPT-4o-Mini RFT (Optional, expensive)
     if not skip_rft:
