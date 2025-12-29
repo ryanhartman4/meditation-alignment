@@ -134,7 +134,7 @@ meditation-alignment/
 **Tracked Files** (in git):
 - All source code (`src/`)
 - Configuration examples (`data/meditation_constitution.json`, `data/meditation_test_cases.json`)
-- Documentation (`README.md`, `SETUP.md`, `INTEGRATION_GUIDE.md`)
+- Documentation (`README.md`, `SETUP.md`)
 - Requirements files
 
 **Generated/Local Files** (not tracked):

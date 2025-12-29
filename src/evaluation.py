@@ -613,8 +613,6 @@ class AlignmentEvaluator:
         
         print(f"Summary report saved to {filepath}")
 
-# Add missing import
-import re
 
 # Test functionality
 if __name__ == "__main__":
