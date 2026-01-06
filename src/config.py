@@ -64,9 +64,12 @@ MAX_API_COST_USD = float(os.getenv("MAX_API_COST_USD", "20.0"))
 COST_WARNING_THRESHOLD = 0.8  # Warn at 80% of budget
 
 # Token pricing per 1K tokens (input, output)
+# Last verified: January 2025
+# Source: https://openai.com/pricing
+# Note: Update these values if pricing changes
 TOKEN_PRICING = {
-    "gpt-4o": {"input": 0.01 / 1000, "output": 0.03 / 1000},
-    "gpt-4o-mini": {"input": 0.00015 / 1000, "output": 0.0006 / 1000}
+    "gpt-4o": {"input": 0.01 / 1000, "output": 0.03 / 1000},        # GPT-4o pricing
+    "gpt-4o-mini": {"input": 0.00015 / 1000, "output": 0.0006 / 1000}  # GPT-4o-mini pricing
 }
 
 # Safety Configuration
