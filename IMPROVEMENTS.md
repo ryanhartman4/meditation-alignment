@@ -21,6 +21,24 @@ This is a well-structured educational project demonstrating AI alignment techniq
 ### ~~2. Add `.env.example` File~~ FIXED
 **Status**: Fixed - Created `.env.example` with all configuration options documented.
 
+#### ~~Incomplete instruction (generate_preferences.py:87)~~ FIXED
+**Status**: Fixed - Changed "Each meditation should be 700" to "Each meditation should be 700+ words".
+
+#### ~~Unicode character corruption (rft_training.py:205,209)~~ FIXED
+**Status**: Fixed - Removed corrupted unicode characters from training status messages.
+
+#### ~~Missing retry wrapper (constitutional_ai.py:262)~~ FIXED
+**Status**: Fixed - Added `make_api_call_with_retry` wrapper for API call consistency and error handling.
+
+### ~~3. Add LICENSE File~~ FIXED
+**Status**: Fixed - Added MIT License file.
+
+### ~~4. Add CI/CD Workflow~~ FIXED
+**Status**: Fixed - Added `.github/workflows/ci.yml` with linting, validation, and security checks.
+
+### ~~5. Token Pricing Documentation~~ FIXED
+**Status**: Fixed - Added date verification comments and source URL for token pricing in config.py.
+
 ---
 
 ## Medium Priority Improvements
@@ -318,9 +336,14 @@ def cache_response(messages: list, model: str, response: str):
    - ~~Fix bare `except` clause~~ DONE
    - ~~Remove duplicate import~~ DONE
    - ~~Add `.env.example`~~ DONE
+   - ~~Fix incomplete instruction in generate_preferences.py~~ DONE
+   - ~~Fix unicode corruption in rft_training.py~~ DONE
+   - ~~Add retry wrapper to constitutional_ai.py~~ DONE
 
 2. **Short-term** (next iteration):
-   - Add LICENSE file
+   - ~~Add LICENSE file~~ DONE
+   - ~~Add CI/CD workflow~~ DONE
+   - ~~Add token pricing documentation~~ DONE
    - Separate dev dependencies
    - Add type hints to main modules
    - Create CONTRIBUTING.md
@@ -328,7 +351,6 @@ def cache_response(messages: list, model: str, response: str):
 3. **Medium-term** (ongoing improvement):
    - Add unit tests
    - Implement proper logging
-   - Add CI/CD
    - Break down large files
 
 4. **Long-term** (refactoring):

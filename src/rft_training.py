@@ -202,11 +202,11 @@ class RFTTrainingPipeline:
                     return job.fine_tuned_model
                 
                 elif job.status == "failed":
-                    print(f"\nL Training failed: {job.error}")
+                    print(f"\nTraining failed: {job.error}")
                     return None
                 
                 elif job.status == "cancelled":
-                    print(f"\n   Training was cancelled")
+                    print(f"\nTraining was cancelled")
                     return None
                 
                 # Wait before checking again

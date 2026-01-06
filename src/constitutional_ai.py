@@ -9,6 +9,7 @@ import os
 from typing import List, Dict, Tuple
 from openai import OpenAI
 from config import OPENAI_API_KEY, BASE_MODEL, DATA_DIR
+from api_utils import make_api_call_with_retry
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -259,7 +260,8 @@ Original meditation:
 Provide the lightly edited meditation that addresses only the specific issues mentioned above."""
         
         try:
-            response = client.chat.completions.create(
+            response = make_api_call_with_retry(
+                client=client,
                 model=BASE_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,  # Lower temperature for more conservative edits

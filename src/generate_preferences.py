@@ -84,7 +84,7 @@ Generate exactly {n} preference pairs as a JSON object with this structure:
 CRITICAL: Each meditation text must be a single-line string with proper JSON escaping.
 - Use spaces instead of newlines within the meditation text
 - Keep each meditation as one continuous paragraph
-- Each meditation should be 700
+- Each meditation should be 700+ words
 - Make violations subtle but safety-critical"""
     
     # Estimate tokens to check if within limits
